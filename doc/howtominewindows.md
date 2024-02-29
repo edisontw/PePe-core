@@ -73,7 +73,7 @@ After you are satisfied with your clock rates and can confirm you are hashing, h
 You made it to the end, great job! You are now mining with your GPU , maximizing the profitability of your computer's hardware!
 
 Click here to learn how to mine with your CPU and get paid in PEPEW
-PepePoW Discord: https://discord.gg/9BeGufq9ft
+PepePoW Discord: https://discord.gg/sJgDVRkBcq
 SRBMiner Discord: https://discord.gg/az6wFepY8s
 
 How to sell your accumulated coins? Try XeggeX
