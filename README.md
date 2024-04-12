@@ -18,14 +18,13 @@ With enough support - PEPEPOW is set to become the second most popular proof-of-
 
 ## <br> Important links: <br>
  - Github [GITHUB](https://github.com/MattF42/PePe-core/)
- - Website [PEPEPOW](https://pepecore.wordpress.com/)
+ - Website [PEPEPOW](https://pepepow.org/)
  - Web Wallet [WALLET](https://wallet-pepepow.foztor.net/)
  - Faucet [FREE PEPEW](https://pepepow.foztor.net/faucet/#)
  - Dice Game [DICE](https://dice-pepepow.foztor.net/)
  - Mining Pool [COMMUNITY POOL](https://community-pool.pepepow.org/)
  - Block Explorer [PEPEPOW-EXPLORER](https://explorer.pepepow.org/)
  - M4P Block Explorer [PEPEPOW-EXPLORER](https://explorer2.pepepow.org/)
- - HACKED DISORD - RUN BY CRIMINALS DO NOT ENTER : Discord https://discord.gg/fF4NPMRNKp
  - Reborn Discord [DISCORD] https://discord.gg/pxKvp4GJh5
  - Twitter [TWITTER](https://twitter.com/PEPEWCommunity)
  - Reddit [REDDIT](https://www.reddit.com/r/PEPEWCommunity/)
