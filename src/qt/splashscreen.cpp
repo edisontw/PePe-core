@@ -70,7 +70,11 @@ SplashScreen::SplashScreen(Qt::WindowFlags f, const NetworkStyle *networkStyle) 
     // check font size and drawing with
     pixPaint.setFont(QFont(font, 28*fontFactor));
     QFontMetrics fm = pixPaint.fontMetrics();
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 11, 0))
+    int titleTextWidth  = fm.horizontalAdvance(titleText);
+#else
     int titleTextWidth  = fm.width(titleText);
+#endif
     if(titleTextWidth > 160) {
         // strange font rendering, Arial probably not found
         fontFactor = 0.75;
@@ -78,7 +82,11 @@ SplashScreen::SplashScreen(Qt::WindowFlags f, const NetworkStyle *networkStyle) 
 
     pixPaint.setFont(QFont(font, 28*fontFactor));
     fm = pixPaint.fontMetrics();
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 11, 0))
+    titleTextWidth  = fm.horizontalAdvance(titleText);
+#else
     titleTextWidth  = fm.width(titleText);
+#endif
     pixPaint.drawText(paddingLeft,paddingTop,titleText);
 
     pixPaint.setFont(QFont(font, 15*fontFactor));
@@ -86,16 +94,27 @@ SplashScreen::SplashScreen(Qt::WindowFlags f, const NetworkStyle *networkStyle) 
 
     // draw copyright stuff
     pixPaint.setFont(QFont(font, 10*fontFactor));
-    pixPaint.drawText(paddingLeft,paddingTop+titleCopyrightVSpace+15,copyrightTextBtc);
-    pixPaint.drawText(paddingLeft,paddingTop+titleCopyrightVSpace+15,copyrightTextDash);
-    pixPaint.drawText(paddingLeft,paddingTop+titleCopyrightVSpace+35,copyrightTextPEPEPOW);
+    {
+        QFontMetrics fm10 = pixPaint.fontMetrics();
+        int y = paddingTop + titleCopyrightVSpace + 15;
+        int lineGap = fm10.height() + 4; // Line height
+        pixPaint.drawText(paddingLeft, y, copyrightTextBtc);
+        y += lineGap;
+        pixPaint.drawText(paddingLeft, y, copyrightTextDash);
+        y += lineGap;
+        pixPaint.drawText(paddingLeft, y, copyrightTextPEPEPOW);
+    }
 
     // draw additional text if special network
     if(!titleAddText.isEmpty()) {
         QFont boldFont = QFont(font, 10*fontFactor);
         boldFont.setWeight(QFont::Bold);
-        pixPaint.setFont(boldFont);
         fm = pixPaint.fontMetrics();
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 11, 0))
+        int titleAddTextWidth  = fm.horizontalAdvance(titleAddText);
+#else
+        int titleAddTextWidth  = fm.width(titleAddText);
+#endif
         int titleAddTextWidth  = fm.width(titleAddText);
         pixPaint.drawText(pixmap.width()-titleAddTextWidth-10,pixmap.height()-25,titleAddText);
     }
@@ -208,11 +227,22 @@ void SplashScreen::paintEvent(QPaintEvent *event)
     QPainter painter(this);
     painter.setPen(QColor(255, 255, 255)); // White frame
     painter.drawPixmap(0, 0, pixmap); //draw background picture
+
+    // Keep a fixed height at the bottom to prevent messages (AlignBottom) from overlapping the copyright line already drawn on the pixmap
+    constexpr int kBottomReserve = 80; // 90~110
     painter.setBrush(QBrush(QColor(70, 0, 110, 30)));  // RGBA dark purple, 30 transparent
-    QRect textBackgroundRect = rect().adjusted(7, 7, -7, -7);
+    QRect textBackgroundRect = rect().adjusted(7, 7, -7, -(7 + kBottomReserve));
     painter.drawRect(textBackgroundRect);  // draw rect
-    painter.setPen(curColor); //font color
-    painter.drawText(textBackgroundRect, curAlignment, curMessage); // print text
+    painter.setPen(curColor); // font color
+
+    // Prevent long messages from overflowing: if too long, show with ellipsis
+    QFontMetrics msgFm(painter.fontMetrics());
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 11, 0))
+    QString clipped = msgFm.elidedText(curMessage, Qt::ElideRight, textBackgroundRect.width() - 14);
+#else
+    QString clipped = curMessage; // In older versions without the elidedText width difference issue, this can be skipped
+#endif
+    painter.drawText(textBackgroundRect, curAlignment, clipped); // print text
 }
 
 void SplashScreen::closeEvent(QCloseEvent *event)
