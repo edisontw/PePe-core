@@ -13,9 +13,11 @@ changes even when Overview limits its exposed rowCount to five. Each accepted ro
 previously fetched seven filter roles; index() also performed the locking/lazy
 status lookup twice. A synthetic Qt model confirms the full-history proxy cost.
 
-This is evidence for the scalability mechanism, not a Windows profile: no real
-100k-transaction pool wallet or Windows runtime was available. The dominant share
-of the real 1–2 minute stall still needs measurement with the timing log below.
+The synthetic model identifies the scalability mechanism. It has now also been
+validated end-to-end on Windows with the actual large pool wallet that originally
+triggered the severe freezes: a Windows x86_64 executable built from this branch
+no longer freezes under the previously problematic workload. The synthetic timing
+figures below remain mechanism/complexity evidence rather than Windows benchmarks.
 
 ## Small changes
 
@@ -87,10 +89,17 @@ Environment: Ubuntu 24.04, GCC 13.2, Qt 5.15.13.
   opened or converted with that build.
 - The modified walletmodel, transactiontablemodel, transactionfilterproxy and
   wallet translation units compile with local byte-swap feature defines.
-- Full unmodified-toolchain build attempt fails in existing byte-swap feature
-  detection. A local command-line workaround reaches a second baseline failure:
-  httpserver.cpp uses std::deque without including <deque>. These files are
-  unchanged by the patch. Full executable linking/core tests were not completed.
+- Initial unmodified-toolchain attempts exposed baseline/toolchain compatibility
+  issues (byte-swap detection and httpserver.cpp using std::deque without directly
+  including <deque>). The final Windows build used environment/build workarounds
+  rather than PEPEPOW source compatibility changes.
+- Windows x86_64 `PEPEPOW_qt.exe` was successfully cross-compiled from branch
+  commit `9c2f03a1b4c0c27ac0c19a51d019314412483e25` on Ubuntu using MinGW-w64 and
+  the repository depends system. Qt and required runtime components are statically
+  linked into the executable.
+- **Real-world pool-wallet test: PASS.** The resulting Windows executable was run
+  with the actual large pool wallet that previously caused repeated/severe Qt
+  freezes. Under the previously problematic workload, the GUI no longer freezes.
 - Integrated regression-test translation units also compile.
 - `git diff --check` passes.
 
@@ -117,27 +126,24 @@ make -C src -j2 \
 
 ## Remaining verification and risks
 
-1. Build with the supported Windows/release dependency toolchain. Test a backup
-   copy of the pool wallet through a long catch-up, using `-debug=qt`. Log lines
-   report wallet_txs, balance_ms, total_ms, catchup and reorg. They measure the
-   poll snapshot, not later painting, transaction-notification delivery or initial
-   history sorting. Compare UI responsiveness and elapsed catch-up time to master.
-2. Compare core RPC balances with GUI snapshots after catch-up; cover unconfirmed
+1. Compare core RPC balances with GUI snapshots after catch-up; cover unconfirmed
    receipts/spends, coinbase maturity, watch-only and PrivateSend. Core accounting
-   is unchanged, but these end-to-end assertions have not been run here.
-3. Exercise real reorgs, including equal-height replacement, abandonment and
+   is unchanged, but these end-to-end assertions have not all been run here.
+2. Exercise real reorgs, including equal-height replacement, abandonment and
    descendant conflicts. Targeted notifications and tip-hash fallback preserve
    these paths by construction, but synthetic proxy tests are not chain tests.
-4. During large-wallet catch-up the displayed balance/confirmation snapshot may
+3. During large-wallet catch-up the displayed balance/confirmation snapshot may
    lag by about five seconds plus the computation duration. Actual wallet state,
    sending validation and individual transaction notifications remain immediate.
-5. Initial full sorting and each remaining O(W) balance scan can still stall on
-   exceptionally costly wallets. The log will determine whether a second, separate
-   accounting optimization is needed. Bulk hash-ordered QList insertions and large
-   reorg refreshes remain history-sized work.
-6. Consumers added later that directly display TransactionTableModel must handle
+4. Initial full sorting and each remaining O(W) balance scan can still stall on
+   exceptionally costly wallets. The timing log can determine whether a second,
+   separate accounting optimization is needed. Bulk hash-ordered QList insertions
+   and large reorg refreshes remain history-sized work.
+5. Consumers added later that directly display TransactionTableModel must handle
    confirmationsChanged or use TransactionFilterProxy, as the existing two views do.
 
-This is a reviewable mitigation of confirmed Qt amplification, not a claim that
-Windows production freezes or every wallet-accounting scenario are already proven
-fixed. Keep the PR draft until release-toolchain and real-wallet validation pass.
+This is a reviewable mitigation of confirmed Qt amplification, and the original
+Windows large-pool-wallet freeze has now passed real-world validation. It is not a
+claim that every wallet-accounting or reorg scenario has been proven. Keep the PR
+under maintainer review until the remaining correctness checks are considered
+sufficient for merge.
