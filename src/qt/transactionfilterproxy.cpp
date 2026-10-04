@@ -29,6 +29,21 @@ TransactionFilterProxy::TransactionFilterProxy(QObject *parent) :
 {
 }
 
+void TransactionFilterProxy::setSourceModel(QAbstractItemModel *model)
+{
+    if (sourceModel())
+        disconnect(sourceModel(), SIGNAL(confirmationsChanged()), this, SLOT(refreshConfirmations()));
+    QSortFilterProxyModel::setSourceModel(model);
+    if (model && model->metaObject()->indexOfSignal("confirmationsChanged()") != -1)
+        connect(model, SIGNAL(confirmationsChanged()), this, SLOT(refreshConfirmations()));
+}
+
+void TransactionFilterProxy::refreshConfirmations()
+{
+    if (rowCount() > 0 && columnCount() > 0)
+        Q_EMIT dataChanged(index(0, 0), index(rowCount() - 1, columnCount() - 1));
+}
+
 bool TransactionFilterProxy::filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const
 {
     QModelIndex index = sourceModel()->index(sourceRow, 0, sourceParent);
