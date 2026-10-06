@@ -80,3 +80,92 @@ BOOST_AUTO_TEST_CASE(test_combiner_all)
     BOOST_CHECK(Test());
 }
 BOOST_AUTO_TEST_SUITE_END()
+
+namespace {
+struct BlockIndexCandidateSetup
+{
+    CBlockIndex indexes[2];
+    CBlockIndex& candidate;
+    CBlockIndex& tip;
+
+    BlockIndexCandidateSetup() : candidate(indexes[0]), tip(indexes[1])
+    {
+        candidate.pprev = &tip;
+        candidate.nStatus = tip.nStatus = BLOCK_VALID_TRANSACTIONS;
+        candidate.nChainTx = tip.nChainTx = 1;
+        candidate.nChainWork = tip.nChainWork = arith_uint256(100);
+    }
+};
+}
+
+BOOST_FIXTURE_TEST_SUITE(blockindex_candidate_tests, BlockIndexCandidateSetup)
+
+BOOST_AUTO_TEST_CASE(active_tip)
+{
+    BOOST_CHECK(IsBlockIndexCandidateForTip(&tip, &tip));
+}
+
+BOOST_AUTO_TEST_CASE(worse_historical_block)
+{
+    candidate.nChainWork = arith_uint256(99);
+    BOOST_CHECK(!IsBlockIndexCandidateForTip(&candidate, &tip));
+}
+
+BOOST_AUTO_TEST_CASE(equal_work_tie_breaks)
+{
+    // Disk-loaded entries have sequence 0: the lower pointer sorts better.
+    BOOST_CHECK(IsBlockIndexCandidateForTip(&candidate, &tip));
+    BOOST_CHECK(!IsBlockIndexCandidateForTip(&tip, &candidate));
+    candidate.nSequenceId = 2;
+    tip.nSequenceId = 1;
+    BOOST_CHECK(!IsBlockIndexCandidateForTip(&candidate, &tip));
+    candidate.nSequenceId = 0;
+    BOOST_CHECK(IsBlockIndexCandidateForTip(&candidate, &tip));
+}
+
+BOOST_AUTO_TEST_CASE(better_work_side_chain)
+{
+    candidate.nChainWork = arith_uint256(101);
+    BOOST_CHECK(IsBlockIndexCandidateForTip(&candidate, &tip));
+}
+
+BOOST_AUTO_TEST_CASE(invalid_or_insufficiently_valid_block)
+{
+    candidate.nChainWork = arith_uint256(101);
+    candidate.nStatus |= BLOCK_FAILED_VALID;
+    BOOST_CHECK(!IsBlockIndexCandidateForTip(&candidate, &tip));
+    candidate.nStatus = BLOCK_VALID_TRANSACTIONS | BLOCK_FAILED_CHILD;
+    BOOST_CHECK(!IsBlockIndexCandidateForTip(&candidate, &tip));
+    candidate.nStatus = BLOCK_VALID_TREE;
+    BOOST_CHECK(!IsBlockIndexCandidateForTip(&candidate, &tip));
+}
+
+BOOST_AUTO_TEST_CASE(missing_chain_transaction_state)
+{
+    candidate.nChainWork = arith_uint256(101);
+    candidate.nChainTx = 0;
+    BOOST_CHECK(!IsBlockIndexCandidateForTip(&candidate, &tip));
+}
+
+BOOST_AUTO_TEST_CASE(missing_active_tip)
+{
+    candidate.nChainWork = arith_uint256(99);
+    BOOST_CHECK(IsBlockIndexCandidateForTip(&candidate, NULL));
+    candidate.nChainTx = 0;
+    BOOST_CHECK(!IsBlockIndexCandidateForTip(&candidate, NULL));
+}
+
+BOOST_AUTO_TEST_CASE(genesis_transaction_state_exception)
+{
+    candidate.pprev = NULL;
+    candidate.nChainTx = 0;
+    BOOST_CHECK(IsBlockIndexCandidateForTip(&candidate, NULL));
+}
+
+BOOST_AUTO_TEST_CASE(pruned_data_does_not_change_eligibility)
+{
+    BOOST_CHECK(!(candidate.nStatus & BLOCK_HAVE_DATA));
+    BOOST_CHECK(IsBlockIndexCandidateForTip(&candidate, &tip));
+}
+
+BOOST_AUTO_TEST_SUITE_END()

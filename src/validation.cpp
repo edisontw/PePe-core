@@ -4049,6 +4049,13 @@ CBlockIndex * InsertBlockIndex(uint256 hash)
     return pindexNew;
 }
 
+bool IsBlockIndexCandidateForTip(CBlockIndex* pindex, CBlockIndex* pindexTip)
+{
+    return pindex->IsValid(BLOCK_VALID_TRANSACTIONS) &&
+        (pindex->nChainTx || pindex->pprev == NULL) &&
+        (pindexTip == NULL || !CBlockIndexWorkComparator()(pindex, pindexTip));
+}
+
 bool static LoadBlockIndexDB()
 {
     const int64_t nLoadStart = GetTimeMillis();
@@ -4073,8 +4080,7 @@ bool static LoadBlockIndexDB()
     sort(vSortedByHeight.begin(), vSortedByHeight.end());
     const int64_t nSortMs = GetTimeMillis() - nSortStart;
     const int64_t nMetadataStart = GetTimeMillis();
-    int64_t nCandidateInsertMicros = 0;
-    unsigned int nCandidateInsertCount = 0;
+    unsigned int nEligibleCandidates = 0;
     BOOST_FOREACH(const PAIRTYPE(int, CBlockIndex*)& item, vSortedByHeight)
     {
         CBlockIndex* pindex = item.second;
@@ -4093,12 +4099,8 @@ bool static LoadBlockIndexDB()
                 pindex->nChainTx = pindex->nTx;
             }
         }
-        if (pindex->IsValid(BLOCK_VALID_TRANSACTIONS) && (pindex->nChainTx || pindex->pprev == NULL)) {
-            const int64_t nCandidateStart = GetTimeMicros();
-            setBlockIndexCandidates.insert(pindex);
-            nCandidateInsertMicros += GetTimeMicros() - nCandidateStart;
-            ++nCandidateInsertCount;
-        }
+        if (pindex->IsValid(BLOCK_VALID_TRANSACTIONS) && (pindex->nChainTx || pindex->pprev == NULL))
+            ++nEligibleCandidates;
         if (pindex->nStatus & BLOCK_FAILED_MASK && (!pindexBestInvalid || pindex->nChainWork > pindexBestInvalid->nChainWork))
             pindexBestInvalid = pindex;
         if (pindex->pprev)
@@ -4176,22 +4178,39 @@ bool static LoadBlockIndexDB()
     // Load pointer to end of best chain
     const int64_t nTipStart = GetTimeMillis();
     BlockMap::iterator it = mapBlockIndex.find(pcoinsTip->GetBestBlock());
-    if (it == mapBlockIndex.end())
-        return true;
-    chainActive.SetTip(it->second);
+    CBlockIndex* pindexTip = it == mapBlockIndex.end() ? NULL : it->second;
+    if (pindexTip)
+        chainActive.SetTip(pindexTip);
+    const int64_t nTipSetupMs = GetTimeMillis() - nTipStart;
+
+    // Match the old insert-then-prune result, including sequence/pointer ties.
+    // Without a chainstate tip, keep every eligible candidate as before.
+    const int64_t nCandidateStart = GetTimeMillis();
+    unsigned int nCandidateInsertCount = 0;
+    BOOST_FOREACH(const PAIRTYPE(int, CBlockIndex*)& item, vSortedByHeight)
+    {
+        if (IsBlockIndexCandidateForTip(item.second, pindexTip)) {
+            setBlockIndexCandidates.insert(item.second);
+            ++nCandidateInsertCount;
+        }
+    }
+    const int64_t nCandidateMs = GetTimeMillis() - nCandidateStart;
 
     const unsigned int nCandidatesBeforePrune = setBlockIndexCandidates.size();
     const int64_t nPruneStart = GetTimeMillis();
-    PruneBlockIndexCandidates();
+    if (pindexTip)
+        PruneBlockIndexCandidates();
     const int64_t nPruneMs = GetTimeMillis() - nPruneStart;
-    const int64_t nTipSetupMs = GetTimeMillis() - nTipStart;
 
-    LogPrintf("LoadBlockIndex timing: entries=%u leveldb=%dms height_vector=%dms sort=%dms metadata=%dms candidate_insert=%dms candidates=%u file_count=%u file_checks=%dms tip_and_prune=%dms prune=%dms candidates_before=%u candidates_after=%u total=%dms\n",
+    LogPrintf("LoadBlockIndex timing: entries=%u leveldb=%dms height_vector=%dms sort=%dms metadata=%dms candidate_population=%dms candidates_eligible=%u candidates_inserted=%u file_count=%u file_checks=%dms tip=%dms prune=%dms candidates_before=%u candidates_after=%u total=%dms\n",
         (unsigned int)mapBlockIndex.size(), (int)nLevelDBMs, (int)nHeightVectorMs,
-        (int)nSortMs, (int)nMetadataMs, (int)(nCandidateInsertMicros / 1000),
-        nCandidateInsertCount, (unsigned int)setBlkDataFiles.size(), (int)nBlockFilesMs,
+        (int)nSortMs, (int)nMetadataMs, (int)nCandidateMs,
+        nEligibleCandidates, nCandidateInsertCount, (unsigned int)setBlkDataFiles.size(), (int)nBlockFilesMs,
         (int)nTipSetupMs, (int)nPruneMs, nCandidatesBeforePrune,
         (unsigned int)setBlockIndexCandidates.size(), (int)(GetTimeMillis() - nLoadStart));
+
+    if (!pindexTip)
+        return true;
 
     LogPrintf("%s: hashBestChain=%s height=%d date=%s progress=%f\n", __func__,
         chainActive.Tip()->GetBlockHash().ToString(), chainActive.Height(),
