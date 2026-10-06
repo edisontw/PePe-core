@@ -11,6 +11,7 @@
 #include "uint256.h"
 #include "ui_interface.h"
 #include "init.h"
+#include "utiltime.h"
 
 #include <stdint.h>
 
@@ -348,6 +349,8 @@ bool CBlockTreeDB::ReadFlag(const std::string &name, bool &fValue) {
 
 bool CBlockTreeDB::LoadBlockIndexGuts(boost::function<CBlockIndex*(const uint256&)> insertBlockIndex)
 {
+    const int64_t nLoadStart = GetTimeMillis();
+    unsigned int nLoaded = 0;
     boost::scoped_ptr<CDBIterator> pcursor(NewIterator());
 
     pcursor->Seek(make_pair(DB_BLOCK_INDEX, uint256()));
@@ -378,6 +381,7 @@ bool CBlockTreeDB::LoadBlockIndexGuts(boost::function<CBlockIndex*(const uint256
                     // return error("%s: CheckProofOfWork failed: %s", __func__, pindexNew->ToString());
 
                 pcursor->Next();
+                ++nLoaded;
             } else {
                 return error("%s: failed to read value", __func__);
             }
@@ -386,6 +390,8 @@ bool CBlockTreeDB::LoadBlockIndexGuts(boost::function<CBlockIndex*(const uint256
         }
     }
 
+    LogPrintf("LoadBlockIndex timing: leveldb=%dms entries=%u\n",
+        (int)(GetTimeMillis() - nLoadStart), nLoaded);
     return true;
 }
 

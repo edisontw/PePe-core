@@ -4051,13 +4051,16 @@ CBlockIndex * InsertBlockIndex(uint256 hash)
 
 bool static LoadBlockIndexDB()
 {
+    const int64_t nLoadStart = GetTimeMillis();
     const CChainParams& chainparams = Params();
     if (!pblocktree->LoadBlockIndexGuts(InsertBlockIndex))
         return false;
+    const int64_t nLevelDBMs = GetTimeMillis() - nLoadStart;
 
     boost::this_thread::interruption_point();
 
     // Calculate nChainWork
+    const int64_t nHeightVectorStart = GetTimeMillis();
     vector<pair<int, CBlockIndex*> > vSortedByHeight;
     vSortedByHeight.reserve(mapBlockIndex.size());
     BOOST_FOREACH(const PAIRTYPE(uint256, CBlockIndex*)& item, mapBlockIndex)
@@ -4065,7 +4068,13 @@ bool static LoadBlockIndexDB()
         CBlockIndex* pindex = item.second;
         vSortedByHeight.push_back(make_pair(pindex->nHeight, pindex));
     }
+    const int64_t nHeightVectorMs = GetTimeMillis() - nHeightVectorStart;
+    const int64_t nSortStart = GetTimeMillis();
     sort(vSortedByHeight.begin(), vSortedByHeight.end());
+    const int64_t nSortMs = GetTimeMillis() - nSortStart;
+    const int64_t nMetadataStart = GetTimeMillis();
+    int64_t nCandidateInsertMicros = 0;
+    unsigned int nCandidateInsertCount = 0;
     BOOST_FOREACH(const PAIRTYPE(int, CBlockIndex*)& item, vSortedByHeight)
     {
         CBlockIndex* pindex = item.second;
@@ -4084,8 +4093,12 @@ bool static LoadBlockIndexDB()
                 pindex->nChainTx = pindex->nTx;
             }
         }
-        if (pindex->IsValid(BLOCK_VALID_TRANSACTIONS) && (pindex->nChainTx || pindex->pprev == NULL))
+        if (pindex->IsValid(BLOCK_VALID_TRANSACTIONS) && (pindex->nChainTx || pindex->pprev == NULL)) {
+            const int64_t nCandidateStart = GetTimeMicros();
             setBlockIndexCandidates.insert(pindex);
+            nCandidateInsertMicros += GetTimeMicros() - nCandidateStart;
+            ++nCandidateInsertCount;
+        }
         if (pindex->nStatus & BLOCK_FAILED_MASK && (!pindexBestInvalid || pindex->nChainWork > pindexBestInvalid->nChainWork))
             pindexBestInvalid = pindex;
         if (pindex->pprev)
@@ -4094,7 +4107,10 @@ bool static LoadBlockIndexDB()
             pindexBestHeader = pindex;
     }
 
+    const int64_t nMetadataMs = GetTimeMillis() - nMetadataStart;
+
     // Load block file info
+    const int64_t nBlockFilesStart = GetTimeMillis();
     pblocktree->ReadLastBlockFile(nLastBlockFile);
     vinfoBlockFile.resize(nLastBlockFile + 1);
     LogPrintf("%s: last block file = %i\n", __func__, nLastBlockFile);
@@ -4129,6 +4145,8 @@ bool static LoadBlockIndexDB()
         }
     }
 
+    const int64_t nBlockFilesMs = GetTimeMillis() - nBlockFilesStart;
+
     // Check whether we have ever pruned block & undo files
     pblocktree->ReadFlag("prunedblockfiles", fHavePruned);
     if (fHavePruned)
@@ -4156,12 +4174,24 @@ bool static LoadBlockIndexDB()
     LogPrintf("%s: spent index %s\n", __func__, fSpentIndex ? "enabled" : "disabled");
 
     // Load pointer to end of best chain
+    const int64_t nTipStart = GetTimeMillis();
     BlockMap::iterator it = mapBlockIndex.find(pcoinsTip->GetBestBlock());
     if (it == mapBlockIndex.end())
         return true;
     chainActive.SetTip(it->second);
 
+    const unsigned int nCandidatesBeforePrune = setBlockIndexCandidates.size();
+    const int64_t nPruneStart = GetTimeMillis();
     PruneBlockIndexCandidates();
+    const int64_t nPruneMs = GetTimeMillis() - nPruneStart;
+    const int64_t nTipSetupMs = GetTimeMillis() - nTipStart;
+
+    LogPrintf("LoadBlockIndex timing: entries=%u leveldb=%dms height_vector=%dms sort=%dms metadata=%dms candidate_insert=%dms candidates=%u file_count=%u file_checks=%dms tip_and_prune=%dms prune=%dms candidates_before=%u candidates_after=%u total=%dms\n",
+        (unsigned int)mapBlockIndex.size(), (int)nLevelDBMs, (int)nHeightVectorMs,
+        (int)nSortMs, (int)nMetadataMs, (int)(nCandidateInsertMicros / 1000),
+        nCandidateInsertCount, (unsigned int)setBlkDataFiles.size(), (int)nBlockFilesMs,
+        (int)nTipSetupMs, (int)nPruneMs, nCandidatesBeforePrune,
+        (unsigned int)setBlockIndexCandidates.size(), (int)(GetTimeMillis() - nLoadStart));
 
     LogPrintf("%s: hashBestChain=%s height=%d date=%s progress=%f\n", __func__,
         chainActive.Tip()->GetBlockHash().ToString(), chainActive.Height(),
