@@ -169,6 +169,25 @@ public:
         return true;
     }
 
+    // Diagnostic overload: retain GetValue's fetch/copy/XOR/deserialize semantics.
+    // Only sampled block-index rows use this; other callers keep the untimed path.
+    template<typename V> bool GetValue(V& value, int64_t& fetchMicros, int64_t& decodeMicros) {
+        const int64_t start = GetTimeMicros();
+        leveldb::Slice slValue = piter->value();
+        const int64_t fetched = GetTimeMicros();
+        fetchMicros = fetched - start;
+        try {
+            CDataStream ssValue(slValue.data(), slValue.data() + slValue.size(), SER_DISK, CLIENT_VERSION);
+            ssValue.Xor(dbwrapper_private::GetObfuscateKey(parent));
+            ssValue >> value;
+        } catch (const std::exception&) {
+            decodeMicros = GetTimeMicros() - fetched;
+            return false;
+        }
+        decodeMicros = GetTimeMicros() - fetched;
+        return true;
+    }
+
     unsigned int GetValueSize() {
         return piter->value().size();
     }

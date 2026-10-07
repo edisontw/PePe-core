@@ -12,6 +12,7 @@
 #include "ui_interface.h"
 #include "init.h"
 #include "utiltime.h"
+#include "validation.h"
 
 #include <stdint.h>
 
@@ -347,24 +348,87 @@ bool CBlockTreeDB::ReadFlag(const std::string &name, bool &fValue) {
     return true;
 }
 
+namespace {
+
+// Sample one row in 256: only ~0.4% of rows pay per-operation clock costs.
+// These are sampled sums in microseconds, not extrapolated full-load timings.
+struct BlockIndexLoadTimes {
+    int64_t getkey = 0, getvalue = 0, hash = 0, insertCurrent = 0;
+    int64_t insertPrev = 0, assign = 0, next = 0, valueFetch = 0, valueDecode = 0;
+
+    void Log(const char* kind, unsigned int entries, unsigned int rows,
+             unsigned int samples, unsigned int keySamples,
+             int64_t elapsed, int64_t interval) const
+    {
+        LogPrintf("LoadBlockIndexGuts %s: mode=sampled sample_stride=256 entries=%u rows=%u samples=%u key_samples=%u elapsed_us=%d interval_us=%d getkey_us=%d getvalue_us=%d hash_us=%d insert_current_us=%d insert_prev_us=%d assign_us=%d next_us=%d value_fetch_us=%d value_decode_us=%d\n",
+            kind, entries, rows, samples, keySamples, elapsed, interval,
+            getkey, getvalue, hash, insertCurrent, insertPrev, assign, next,
+            valueFetch, valueDecode);
+    }
+};
+
+} // namespace
+
 bool CBlockTreeDB::LoadBlockIndexGuts(boost::function<CBlockIndex*(const uint256&)> insertBlockIndex)
 {
     const int64_t nLoadStart = GetTimeMillis();
-    unsigned int nLoaded = 0;
+    const int64_t nOverallStart = GetTimeMicros();
+    unsigned int nLoaded = 0, nRows = 0, nBlockRows = 0;
+    unsigned int nSamples = 0, nKeySamples = 0, nWindowSamples = 0, nWindowKeySamples = 0;
+    BlockIndexLoadTimes total, window;
     boost::scoped_ptr<CDBIterator> pcursor(NewIterator());
 
     pcursor->Seek(make_pair(DB_BLOCK_INDEX, uint256()));
+    const int64_t nLoopStart = GetTimeMicros();
+    const int64_t nIteratorSeekMicros = nLoopStart - nOverallStart;
+    int64_t nWindowStart = nLoopStart;
 
-    // Load mapBlockIndex
+    // Load mapBlockIndex in the original iterator order.
     while (pcursor->Valid()) {
         boost::this_thread::interruption_point();
+        const bool fSample = (nRows % 256) == 0;
+        ++nRows;
+        int64_t start = fSample ? GetTimeMicros() : 0;
         std::pair<char, uint256> key;
-        if (pcursor->GetKey(key) && key.first == DB_BLOCK_INDEX) {
+        const bool fKey = pcursor->GetKey(key);
+        if (fSample) {
+            const int64_t elapsed = GetTimeMicros() - start;
+            total.getkey += elapsed; window.getkey += elapsed;
+            ++nKeySamples; ++nWindowKeySamples;
+        }
+        if (fKey && key.first == DB_BLOCK_INDEX) {
+            ++nBlockRows;
             CDiskBlockIndex diskindex;
-            if (pcursor->GetValue(diskindex)) {
-                // Construct block index object
-                CBlockIndex* pindexNew = insertBlockIndex(diskindex.GetBlockHash());
+            int64_t fetchMicros = 0, decodeMicros = 0;
+            if (fSample) start = GetTimeMicros();
+            const bool fValue = fSample ? pcursor->GetValue(diskindex, fetchMicros, decodeMicros) : pcursor->GetValue(diskindex);
+            if (fSample) {
+                const int64_t elapsed = GetTimeMicros() - start;
+                total.getvalue += elapsed; window.getvalue += elapsed;
+                total.valueFetch += fetchMicros; window.valueFetch += fetchMicros;
+                total.valueDecode += decodeMicros; window.valueDecode += decodeMicros;
+            }
+            if (fValue) {
+                if (fSample) start = GetTimeMicros();
+                const uint256 hash = diskindex.GetBlockHash();
+                if (fSample) {
+                    const int64_t elapsed = GetTimeMicros() - start;
+                    total.hash += elapsed; window.hash += elapsed;
+                    start = GetTimeMicros();
+                }
+                // Construct block index object, with the same callbacks/order.
+                CBlockIndex* pindexNew = insertBlockIndex(hash);
+                if (fSample) {
+                    const int64_t elapsed = GetTimeMicros() - start;
+                    total.insertCurrent += elapsed; window.insertCurrent += elapsed;
+                    start = GetTimeMicros();
+                }
                 pindexNew->pprev          = insertBlockIndex(diskindex.hashPrev);
+                if (fSample) {
+                    const int64_t elapsed = GetTimeMicros() - start;
+                    total.insertPrev += elapsed; window.insertPrev += elapsed;
+                    start = GetTimeMicros();
+                }
                 pindexNew->nHeight        = diskindex.nHeight;
                 pindexNew->nFile          = diskindex.nFile;
                 pindexNew->nDataPos       = diskindex.nDataPos;
@@ -376,12 +440,30 @@ bool CBlockTreeDB::LoadBlockIndexGuts(boost::function<CBlockIndex*(const uint256
                 pindexNew->nNonce         = diskindex.nNonce;
                 pindexNew->nStatus        = diskindex.nStatus;
                 pindexNew->nTx            = diskindex.nTx;
+                if (fSample) {
+                    const int64_t elapsed = GetTimeMicros() - start;
+                    total.assign += elapsed; window.assign += elapsed;
+                }
 
                 // if (!CheckProofOfWork(pindexNew->GetBlockHash(), pindexNew->nBits, Params().GetConsensus(), pindexNew->nTime))
                     // return error("%s: CheckProofOfWork failed: %s", __func__, pindexNew->ToString());
 
+                if (fSample) start = GetTimeMicros();
                 pcursor->Next();
+                if (fSample) {
+                    const int64_t elapsed = GetTimeMicros() - start;
+                    total.next += elapsed; window.next += elapsed;
+                    ++nSamples; ++nWindowSamples;
+                }
                 ++nLoaded;
+                if (nLoaded % 500000 == 0) {
+                    const int64_t now = GetTimeMicros();
+                    window.Log("progress", nLoaded, nRows, nWindowSamples,
+                        nWindowKeySamples, now - nLoopStart, now - nWindowStart);
+                    window = BlockIndexLoadTimes();
+                    nWindowSamples = nWindowKeySamples = 0;
+                    nWindowStart = GetTimeMicros();
+                }
             } else {
                 return error("%s: failed to read value", __func__);
             }
@@ -390,6 +472,12 @@ bool CBlockTreeDB::LoadBlockIndexGuts(boost::function<CBlockIndex*(const uint256
         }
     }
 
+    const int64_t nLoopEnd = GetTimeMicros();
+    total.Log("sample_totals", nLoaded, nRows, nSamples, nKeySamples,
+        nLoopEnd - nLoopStart, nLoopEnd - nLoopStart);
+    LogPrintf("LoadBlockIndexGuts timing: mode=sampled sample_stride=256 iterator_seek_us=%d loop_us=%d overall_us=%d rows=%u block_rows=%u values_loaded=%u map_entries=%u samples=%u key_samples=%u\n",
+        nIteratorSeekMicros, nLoopEnd - nLoopStart, nLoopEnd - nOverallStart,
+        nRows, nBlockRows, nLoaded, (unsigned int)mapBlockIndex.size(), nSamples, nKeySamples);
     LogPrintf("LoadBlockIndex timing: leveldb=%dms entries=%u\n",
         (int)(GetTimeMillis() - nLoadStart), nLoaded);
     return true;
