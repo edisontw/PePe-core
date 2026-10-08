@@ -487,7 +487,7 @@ bool CBlockTreeDB::LoadBlockIndexGuts(boost::function<CBlockIndex*(const uint256
     leveldb::WinIOStats winIoAfter = {};
     leveldb::GetWinIOStats(&winIoAfter);
     if (winIoAfter.enabled && winIoBefore.enabled) {
-        LogPrintf("LevelDBWinIO LoadBlockIndexGuts: scope=blocks/index mode=full random_reads=%llu random_requested_bytes=%llu random_returned_bytes=%llu random_read_us=%llu random_failures=%llu seq_reads=%llu seq_requested_bytes=%llu seq_returned_bytes=%llu seq_read_us=%llu seq_failures=%llu\\n",
+        LogPrintf("LevelDBWinIO LoadBlockIndexGuts: scope=blocks/index mode=full random_reads=%llu random_requested_bytes=%llu random_returned_bytes=%llu random_read_us=%llu random_failures=%llu seq_reads=%llu seq_requested_bytes=%llu seq_returned_bytes=%llu seq_read_us=%llu seq_failures=%llu\n",
             (unsigned long long)(winIoAfter.random_calls - winIoBefore.random_calls),
             (unsigned long long)(winIoAfter.random_request_bytes - winIoBefore.random_request_bytes),
             (unsigned long long)(winIoAfter.random_read_bytes - winIoBefore.random_read_bytes),
@@ -498,7 +498,7 @@ bool CBlockTreeDB::LoadBlockIndexGuts(boost::function<CBlockIndex*(const uint256
             (unsigned long long)(winIoAfter.sequential_read_bytes - winIoBefore.sequential_read_bytes),
             (unsigned long long)(winIoAfter.sequential_read_us - winIoBefore.sequential_read_us),
             (unsigned long long)(winIoAfter.sequential_failures - winIoBefore.sequential_failures));
-        LogPrintf("LevelDBWinIO LoadBlockIndexGuts opens: scope=blocks/index random_attempts=%llu random_successes=%llu random_open_us=%llu sst_attempts=%llu sst_successes=%llu sst_open_us=%llu\\n",
+        LogPrintf("LevelDBWinIO LoadBlockIndexGuts opens: scope=blocks/index random_attempts=%llu random_successes=%llu random_open_us=%llu sst_attempts=%llu sst_successes=%llu sst_open_us=%llu\n",
             (unsigned long long)(winIoAfter.random_open_attempts - winIoBefore.random_open_attempts),
             (unsigned long long)(winIoAfter.random_open_successes - winIoBefore.random_open_successes),
             (unsigned long long)(winIoAfter.random_open_us - winIoBefore.random_open_us),
@@ -506,7 +506,7 @@ bool CBlockTreeDB::LoadBlockIndexGuts(boost::function<CBlockIndex*(const uint256
             (unsigned long long)(winIoAfter.sst_open_successes - winIoBefore.sst_open_successes),
             (unsigned long long)(winIoAfter.sst_open_us - winIoBefore.sst_open_us));
     } else {
-        LogPrintf("LevelDBWinIO LoadBlockIndexGuts: disabled (set PEPEPOW_LEVELDB_IO_PROFILE=1 before launch)\\n");
+        LogPrintf("LevelDBWinIO LoadBlockIndexGuts: disabled (set PEPEPOW_LEVELDB_IO_PROFILE=1 before launch)\n");
     }
 #endif
     total.Log("sample_totals", nLoaded, nRows, nSamples, nKeySamples,
