@@ -328,6 +328,12 @@ class EnvWrapper : public Env {
   Env* target_;
 };
 
+#if defined(_WIN32) || defined(WIN32)
+// PEPEPOW experimental startup optimization. The Windows Env still applies
+// its own x86_64, path, and table-file checks before attempting an mmap.
+extern void SetWindowsBlockIndexMmapEnabled(bool enabled);
+#endif
+
 }  // namespace leveldb
 
 #endif  // STORAGE_LEVELDB_INCLUDE_ENV_H_
