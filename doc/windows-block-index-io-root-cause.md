@@ -4,7 +4,7 @@ Status: **investigation only** (2026-10-08). No application changes or new Windo
 
 ## Reproducible facts
 
-On Windows x86_64, loading ~5.08 million block-index entries incurs about 229k–230k random-access `ReadFile` calls and 956–960 million returned bytes. The observed mean read is approximately 4.17 KiB. The measured cumulative time inside `ReadFile` was 119.39–169.61 seconds in two profiled launches, while `LoadBlockIndexGuts` consumed 120.22–170.96 seconds. Both had zero read failures.
+On Windows x86_64, loading ~5.08 million block-index entries incurs about 229k–230k random-access `ReadFile` calls and 956–960 million returned bytes. The observed mean read is approximately 4.17 kB (4.07 KiB). The measured cumulative time inside `ReadFile` was 119.39–169.61 seconds in two profiled launches, while `LoadBlockIndexGuts` consumed 120.22–170.96 seconds. Both had zero read failures.
 
 Opening 537–545 SST handles took 0.26–0.35 seconds, so SST open overhead is not the dominant delay. Wallet loading itself was under one second when the intended `wallet3.dat` was selected. A different launch inadvertently selected `wallet3`, causing zero balance, and should not be used to infer a wallet performance problem.
 
