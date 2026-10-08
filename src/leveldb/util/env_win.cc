@@ -21,6 +21,10 @@
 #include <errno.h>
 #include <io.h>
 #include <algorithm>
+#include <atomic>
+#include <cctype>
+#include <cstdlib>
+#include "win_io_stats.h"
 
 #ifdef max
 #undef max
@@ -40,6 +44,72 @@ namespace leveldb
 
 namespace Win32
 {
+
+// Diagnostic counters for LevelDB files under blocks/index only.
+// Keep the Windows file-open flags and read behavior unchanged.
+struct IOProfileCounters {
+    std::atomic<uint64_t> random_calls{0};
+    std::atomic<uint64_t> random_request_bytes{0};
+    std::atomic<uint64_t> random_read_bytes{0};
+    std::atomic<uint64_t> random_read_ticks{0};
+    std::atomic<uint64_t> random_failures{0};
+    std::atomic<uint64_t> sequential_calls{0};
+    std::atomic<uint64_t> sequential_request_bytes{0};
+    std::atomic<uint64_t> sequential_read_bytes{0};
+    std::atomic<uint64_t> sequential_read_ticks{0};
+    std::atomic<uint64_t> sequential_failures{0};
+    std::atomic<uint64_t> random_open_attempts{0};
+    std::atomic<uint64_t> random_open_successes{0};
+    std::atomic<uint64_t> random_open_ticks{0};
+    std::atomic<uint64_t> sst_open_attempts{0};
+    std::atomic<uint64_t> sst_open_successes{0};
+    std::atomic<uint64_t> sst_open_ticks{0};
+};
+static IOProfileCounters gIO;
+
+static bool IOProfileEnabled()
+{
+    static const bool enabled = []() {
+        const char* setting = std::getenv("PEPEPOW_LEVELDB_IO_PROFILE");
+        return setting != NULL && std::strcmp(setting, "1") == 0;
+    }();
+    return enabled;
+}
+
+static std::string NormalizedPath(const std::string& input)
+{
+    std::string path(input);
+    std::replace(path.begin(), path.end(), '/', '\\\\');
+    std::transform(path.begin(), path.end(), path.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    return path;
+}
+
+static bool IsBlockIndexPath(const std::string& filename)
+{
+    const std::string path = NormalizedPath(filename);
+    return path.find("\\\\blocks\\\\index\\\\") != std::string::npos ||
+           path.find("blocks\\\\index\\\\") == 0;
+}
+
+static bool IsSstPath(const std::string& filename)
+{
+    const std::string path = NormalizedPath(filename);
+    return (path.size() >= 4 &&
+            (path.compare(path.size() - 4, 4, ".ldb") == 0 ||
+             path.compare(path.size() - 4, 4, ".sst") == 0));
+}
+
+static uint64_t ProfileTicksToMicros(uint64_t ticks)
+{
+    LARGE_INTEGER frequency;
+    if (!::QueryPerformanceFrequency(&frequency) || frequency.QuadPart <= 0)
+        return 0;
+    const uint64_t freq = static_cast<uint64_t>(frequency.QuadPart);
+    return (ticks / freq) * 1000000ULL +
+           ((ticks % freq) * 1000000ULL) / freq;
+}
 
 #define DISALLOW_COPY_AND_ASSIGN(TypeName) \
   TypeName(const TypeName&);               \
@@ -84,6 +154,7 @@ private:
     Win32SequentialFile(const std::string& fname);
     std::string _filename;
     ::HANDLE _hFile;
+    bool _profileIO;
     DISALLOW_COPY_AND_ASSIGN(Win32SequentialFile);
 };
 
@@ -100,6 +171,8 @@ private:
     Win32RandomAccessFile(const std::string& fname);
     HANDLE _hFile;
     const std::string _filename;
+    bool _profileIO;
+    bool _isSst;
     DISALLOW_COPY_AND_ASSIGN(Win32RandomAccessFile);
 };
 
@@ -309,7 +382,8 @@ const size_t g_PageSize = GetPageSize();
 
 
 Win32SequentialFile::Win32SequentialFile( const std::string& fname ) :
-    _filename(fname),_hFile(NULL)
+    _filename(fname),_hFile(NULL),
+    _profileIO(IOProfileEnabled() && IsBlockIndexPath(fname))
 {
     _Init();
 }
@@ -323,9 +397,22 @@ Status Win32SequentialFile::Read( size_t n, Slice* result, char* scratch )
 {
     Status sRet;
     DWORD hasRead = 0;
-    if(_hFile && ReadFile(_hFile,scratch,n,&hasRead,NULL) ){
+    LARGE_INTEGER begin = {}, end = {};
+    if (_profileIO) ::QueryPerformanceCounter(&begin);
+    const BOOL ok = _hFile && ::ReadFile(_hFile,scratch,n,&hasRead,NULL);
+    const DWORD readError = ok ? ERROR_SUCCESS : ::GetLastError();
+    if (_profileIO) {
+        ::QueryPerformanceCounter(&end);
+        gIO.sequential_calls.fetch_add(1, std::memory_order_relaxed);
+        gIO.sequential_request_bytes.fetch_add(static_cast<DWORD>(n), std::memory_order_relaxed);
+        gIO.sequential_read_bytes.fetch_add(hasRead, std::memory_order_relaxed);
+        gIO.sequential_read_ticks.fetch_add(static_cast<uint64_t>(end.QuadPart - begin.QuadPart), std::memory_order_relaxed);
+        if (!ok) gIO.sequential_failures.fetch_add(1, std::memory_order_relaxed);
+    }
+    if (ok) {
         *result = Slice(scratch,hasRead);
     } else {
+        ::SetLastError(readError);
         sRet = Status::IOError(_filename, Win32::GetLastErrSz() );
     }
     return sRet;
@@ -370,11 +457,29 @@ void Win32SequentialFile::_CleanUp()
 }
 
 Win32RandomAccessFile::Win32RandomAccessFile( const std::string& fname ) :
-    _filename(fname),_hFile(NULL)
+    _hFile(NULL), _filename(fname),
+    _profileIO(IOProfileEnabled() && IsBlockIndexPath(fname)),
+    _isSst(_profileIO && IsSstPath(fname))
 {
 	std::wstring path;
 	ToWidePath(fname, path);
-    _Init( path.c_str() );
+    LARGE_INTEGER begin = {}, end = {};
+    if (_profileIO) {
+        gIO.random_open_attempts.fetch_add(1, std::memory_order_relaxed);
+        if (_isSst) gIO.sst_open_attempts.fetch_add(1, std::memory_order_relaxed);
+        ::QueryPerformanceCounter(&begin);
+    }
+    const BOOL opened = _Init(path.c_str());
+    if (_profileIO) {
+        ::QueryPerformanceCounter(&end);
+        const uint64_t ticks = static_cast<uint64_t>(end.QuadPart - begin.QuadPart);
+        gIO.random_open_ticks.fetch_add(ticks, std::memory_order_relaxed);
+        if (_isSst) gIO.sst_open_ticks.fetch_add(ticks, std::memory_order_relaxed);
+        if (opened) {
+            gIO.random_open_successes.fetch_add(1, std::memory_order_relaxed);
+            if (_isSst) gIO.sst_open_successes.fetch_add(1, std::memory_order_relaxed);
+        }
+    }
 }
 
 Win32RandomAccessFile::~Win32RandomAccessFile()
@@ -390,10 +495,24 @@ Status Win32RandomAccessFile::Read(uint64_t offset,size_t n,Slice* result,char* 
     ol.Offset = (DWORD)offset;
     ol.OffsetHigh = (DWORD)(offset >> 32);
     DWORD hasRead = 0;
-    if(!ReadFile(_hFile,scratch,n,&hasRead,&ol))
+    LARGE_INTEGER begin = {}, end = {};
+    if (_profileIO) ::QueryPerformanceCounter(&begin);
+    const BOOL ok = ::ReadFile(_hFile,scratch,n,&hasRead,&ol);
+    const DWORD readError = ok ? ERROR_SUCCESS : ::GetLastError();
+    if (_profileIO) {
+        ::QueryPerformanceCounter(&end);
+        gIO.random_calls.fetch_add(1, std::memory_order_relaxed);
+        gIO.random_request_bytes.fetch_add(static_cast<DWORD>(n), std::memory_order_relaxed);
+        gIO.random_read_bytes.fetch_add(hasRead, std::memory_order_relaxed);
+        gIO.random_read_ticks.fetch_add(static_cast<uint64_t>(end.QuadPart - begin.QuadPart), std::memory_order_relaxed);
+        if (!ok) gIO.random_failures.fetch_add(1, std::memory_order_relaxed);
+    }
+    if (!ok) {
+        ::SetLastError(readError);
         sRet = Status::IOError(_filename,Win32::GetLastErrSz());
-    else
+    } else {
         *result = Slice(scratch,hasRead);
+    }
     return sRet;
 }
 
@@ -858,6 +977,29 @@ Win32Env::~Win32Env()
 
 
 }  // Win32 namespace
+
+void GetWinIOStats(WinIOStats* out)
+{
+    if (out == NULL) return;
+    out->enabled = Win32::IOProfileEnabled();
+    const Win32::IOProfileCounters& s = Win32::gIO;
+    out->random_calls = s.random_calls.load(std::memory_order_relaxed);
+    out->random_request_bytes = s.random_request_bytes.load(std::memory_order_relaxed);
+    out->random_read_bytes = s.random_read_bytes.load(std::memory_order_relaxed);
+    out->random_read_us = Win32::ProfileTicksToMicros(s.random_read_ticks.load(std::memory_order_relaxed));
+    out->random_failures = s.random_failures.load(std::memory_order_relaxed);
+    out->sequential_calls = s.sequential_calls.load(std::memory_order_relaxed);
+    out->sequential_request_bytes = s.sequential_request_bytes.load(std::memory_order_relaxed);
+    out->sequential_read_bytes = s.sequential_read_bytes.load(std::memory_order_relaxed);
+    out->sequential_read_us = Win32::ProfileTicksToMicros(s.sequential_read_ticks.load(std::memory_order_relaxed));
+    out->sequential_failures = s.sequential_failures.load(std::memory_order_relaxed);
+    out->random_open_attempts = s.random_open_attempts.load(std::memory_order_relaxed);
+    out->random_open_successes = s.random_open_successes.load(std::memory_order_relaxed);
+    out->random_open_us = Win32::ProfileTicksToMicros(s.random_open_ticks.load(std::memory_order_relaxed));
+    out->sst_open_attempts = s.sst_open_attempts.load(std::memory_order_relaxed);
+    out->sst_open_successes = s.sst_open_successes.load(std::memory_order_relaxed);
+    out->sst_open_us = Win32::ProfileTicksToMicros(s.sst_open_ticks.load(std::memory_order_relaxed));
+}
 
 static port::OnceType once = LEVELDB_ONCE_INIT;
 static Env* default_env;
