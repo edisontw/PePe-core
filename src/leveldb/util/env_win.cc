@@ -79,7 +79,7 @@ static bool IOProfileEnabled()
 static std::string NormalizedPath(const std::string& input)
 {
     std::string path(input);
-    std::replace(path.begin(), path.end(), '/', '\\\\');
+    std::replace(path.begin(), path.end(), '/', '\\');
     std::transform(path.begin(), path.end(), path.begin(), [](unsigned char c) {
         return static_cast<char>(std::tolower(c));
     });
@@ -89,8 +89,8 @@ static std::string NormalizedPath(const std::string& input)
 static bool IsBlockIndexPath(const std::string& filename)
 {
     const std::string path = NormalizedPath(filename);
-    return path.find("\\\\blocks\\\\index\\\\") != std::string::npos ||
-           path.find("blocks\\\\index\\\\") == 0;
+    return path.find("\\blocks\\index\\") != std::string::npos ||
+           path.find("blocks\\index\\") == 0;
 }
 
 static bool IsSstPath(const std::string& filename)
