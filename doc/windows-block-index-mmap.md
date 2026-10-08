@@ -151,6 +151,9 @@ existing LevelDB table reader.
   - add the experimental `-winmmapblockindex` gate
   - enable it only when the PEPEPOW block-index DB wrapper is created
   - add Windows debug-help text and an enablement log line
+- `d086a9fc020110be9a35f912e8afe5367d3f9796`
+  - move mmap activation until after any requested LevelDB wipe has completed
+  - keep reindex/wipe deletion work on the pre-existing environment behavior
 
 ## Review and static validation
 
