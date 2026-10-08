@@ -13,6 +13,9 @@
 #include "init.h"
 #include "utiltime.h"
 #include "validation.h"
+#ifdef _WIN32
+#include "leveldb/util/win_io_stats.h"
+#endif
 
 #include <stdint.h>
 
@@ -376,6 +379,10 @@ bool CBlockTreeDB::LoadBlockIndexGuts(boost::function<CBlockIndex*(const uint256
     unsigned int nLoaded = 0, nRows = 0, nBlockRows = 0;
     unsigned int nSamples = 0, nKeySamples = 0, nWindowSamples = 0, nWindowKeySamples = 0;
     BlockIndexLoadTimes total, window;
+#ifdef _WIN32
+    leveldb::WinIOStats winIoBefore = {};
+    leveldb::GetWinIOStats(&winIoBefore);
+#endif
     boost::scoped_ptr<CDBIterator> pcursor(NewIterator());
 
     pcursor->Seek(make_pair(DB_BLOCK_INDEX, uint256()));
@@ -473,6 +480,35 @@ bool CBlockTreeDB::LoadBlockIndexGuts(boost::function<CBlockIndex*(const uint256
     }
 
     const int64_t nLoopEnd = GetTimeMicros();
+#ifdef _WIN32
+    // Snapshot the underlying Windows ReadFile and SST-open counters after
+    // iteration, before emitting diagnostic logs. Values are real totals,
+    // not extrapolations from the separate per-256-row sampling above.
+    leveldb::WinIOStats winIoAfter = {};
+    leveldb::GetWinIOStats(&winIoAfter);
+    if (winIoAfter.enabled && winIoBefore.enabled) {
+        LogPrintf("LevelDBWinIO LoadBlockIndexGuts: scope=blocks/index mode=full random_reads=%llu random_requested_bytes=%llu random_returned_bytes=%llu random_read_us=%llu random_failures=%llu seq_reads=%llu seq_requested_bytes=%llu seq_returned_bytes=%llu seq_read_us=%llu seq_failures=%llu\\n",
+            (unsigned long long)(winIoAfter.random_calls - winIoBefore.random_calls),
+            (unsigned long long)(winIoAfter.random_request_bytes - winIoBefore.random_request_bytes),
+            (unsigned long long)(winIoAfter.random_read_bytes - winIoBefore.random_read_bytes),
+            (unsigned long long)(winIoAfter.random_read_us - winIoBefore.random_read_us),
+            (unsigned long long)(winIoAfter.random_failures - winIoBefore.random_failures),
+            (unsigned long long)(winIoAfter.sequential_calls - winIoBefore.sequential_calls),
+            (unsigned long long)(winIoAfter.sequential_request_bytes - winIoBefore.sequential_request_bytes),
+            (unsigned long long)(winIoAfter.sequential_read_bytes - winIoBefore.sequential_read_bytes),
+            (unsigned long long)(winIoAfter.sequential_read_us - winIoBefore.sequential_read_us),
+            (unsigned long long)(winIoAfter.sequential_failures - winIoBefore.sequential_failures));
+        LogPrintf("LevelDBWinIO LoadBlockIndexGuts opens: scope=blocks/index random_attempts=%llu random_successes=%llu random_open_us=%llu sst_attempts=%llu sst_successes=%llu sst_open_us=%llu\\n",
+            (unsigned long long)(winIoAfter.random_open_attempts - winIoBefore.random_open_attempts),
+            (unsigned long long)(winIoAfter.random_open_successes - winIoBefore.random_open_successes),
+            (unsigned long long)(winIoAfter.random_open_us - winIoBefore.random_open_us),
+            (unsigned long long)(winIoAfter.sst_open_attempts - winIoBefore.sst_open_attempts),
+            (unsigned long long)(winIoAfter.sst_open_successes - winIoBefore.sst_open_successes),
+            (unsigned long long)(winIoAfter.sst_open_us - winIoBefore.sst_open_us));
+    } else {
+        LogPrintf("LevelDBWinIO LoadBlockIndexGuts: disabled (set PEPEPOW_LEVELDB_IO_PROFILE=1 before launch)\\n");
+    }
+#endif
     total.Log("sample_totals", nLoaded, nRows, nSamples, nKeySamples,
         nLoopEnd - nLoopStart, nLoopEnd - nLoopStart);
     LogPrintf("LoadBlockIndexGuts timing: mode=sampled sample_stride=256 iterator_seek_us=%d loop_us=%d overall_us=%d rows=%u block_rows=%u values_loaded=%u map_entries=%u samples=%u key_samples=%u\n",
