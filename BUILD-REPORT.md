@@ -4,7 +4,7 @@
 
 - Compile: **PASS**. Complete `qt/PEPEPOW_qt.exe` target linked successfully from branch `perf/startup-win-mmap` at `8d6a1aff416813335240d9ddef86cd5b20daeba7`.
 - PE/static verification: **PASS with a diagnostic limitation**. PE32+ AMD64 GUI; mmap option, implementation symbols and required APIs are present; imports are Windows system DLLs only; Qt platform plugin is statically linked. The enablement log statement exists in source but its literal is absent from the executable after the full build and a focused `dbwrapper.cpp` rebuild.
-- Native focused tests: **PASS**, 16 cases / 3096 assertions (`dbwrapper_tests` and `blockindex_candidate_tests`) in the available Linux test binary.
+- Native focused tests: **PASS**, 16 cases / 3096 assertions (`dbwrapper_tests` and `blockindex_candidate_tests`) in the available pre-existing Linux test binary. It was not rebuilt during this task; these tests cover shared database/candidate logic and do not exercise the Windows-only mmap path.
 - Windows runtime smoke: **NOT RUN** (Wine/Windows runner unavailable).
 - Real-wallet validation: **NOT RUN**.
 - Startup performance improvement: **NOT ESTABLISHED**; no benchmark was run.
