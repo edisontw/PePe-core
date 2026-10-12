@@ -9,6 +9,9 @@
 #endif
 
 #include "init.h"
+#ifdef WIN32
+#include "leveldb/env.h"
+#endif
 
 #include "addrman.h"
 #include "amount.h"
@@ -1707,6 +1710,23 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         return false;
     }
     LogPrintf(" block index %15dms\n", GetTimeMillis() - nStart);
+#ifdef WIN32
+    if (GetBoolArg("-winmmapblockindex", false)) {
+        const leveldb::WindowsBlockIndexMmapStats stats = leveldb::GetWindowsBlockIndexMmapStats();
+        const uint64_t fallback = stats.fallback_limit + stats.fallback_open +
+                                  stats.fallback_size + stats.fallback_mapping + stats.fallback_view;
+        // One process-wide snapshot after block-index startup, not per SST/read.
+        LogPrintf("Windows block-index mmap summary: attempts=%llu mapped=%llu fallback=%llu (limit=%llu open=%llu size=%llu mapping=%llu view=%llu)\n",
+                  static_cast<unsigned long long>(stats.attempts),
+                  static_cast<unsigned long long>(stats.mapped),
+                  static_cast<unsigned long long>(fallback),
+                  static_cast<unsigned long long>(stats.fallback_limit),
+                  static_cast<unsigned long long>(stats.fallback_open),
+                  static_cast<unsigned long long>(stats.fallback_size),
+                  static_cast<unsigned long long>(stats.fallback_mapping),
+                  static_cast<unsigned long long>(stats.fallback_view));
+    }
+#endif
 
     boost::filesystem::path est_path = GetDataDir() / FEE_ESTIMATES_FILENAME;
     CAutoFile est_filein(fopen(est_path.string().c_str(), "rb"), SER_DISK, CLIENT_VERSION);
