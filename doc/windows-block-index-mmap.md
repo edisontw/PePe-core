@@ -217,6 +217,7 @@ log captures are available in the project conversation:
 | --- | --- | ---: | ---: | ---: | ---: |
 | `debug_mmap.log` | Not confirmed enabled; no enablement line | 5,082,031 | 168,973 ms | 184,991 ms | approximately 188 s |
 | `debug_mmap2.log` | Enabled; enablement line present | 5,088,092 | 18,932 ms | 32,372 ms | approximately 34 s |
+| `debug_mmap_V2.log` (2026-10-12) | Enabled; mapping confirmed by counters | 5,088,130 | 137,940 ms | 154,357 ms | approximately 189 s |
 
 Both logs show successful LevelDB and wallet loading, progress to the Qt main
 interface, and normal shutdown; no block-index consistency errors were reported.
@@ -235,9 +236,44 @@ execution environment contains Linux `g++` but not a MinGW-w64 compiler.
 The SHA of the user's earlier executable has not been independently matched
 to a reproducible build report in this source pass.
 
-No repeat cold/warm startup benchmark is required to validate the new counters.
-A single normal launch with `-winmmapblockindex=1` on a rebuilt executable is
-sufficient for the next evidence collection.
+### Windows runtime confirmation from 2026-10-12 V2 log
+
+The rebuilt diagnostic executable ran with the mmap flag enabled, using an
+existing `wallet3.dat` and approximately 5.09 million block-index entries:
+
+```
+Experimental Windows mmap enabled for blocks/index LevelDB table reads
+Windows block-index mmap summary: attempts=533 mapped=533 fallback=0 (limit=0 open=0 size=0 mapping=0 view=0)
+```
+
+This is **direct runtime evidence of successful mmap-backed random-access SST
+opens**, not merely option activation. All 533 eligible opens were mapped and
+none required the legacy `ReadFile` fallback at the mmap-open stage. This does
+not mean every block-index byte was serviced from RAM or avoid page faults.
+
+Additional log evidence:
+
+- `LoadBlockIndex timing: leveldb=137940ms entries=5088130`
+- `block index 154357ms` (including verification)
+- `wallet 29275ms` (much slower than the 626 ms recorded on 2026-10-10)
+- `Done loading` at 15:59:05, following the 15:55:56 first log timestamp
+- Recent 289-block check: `No coin database inconsistencies`
+- Block sync continued from height 5,087,948 and reached 5,098,626;
+  `Shutdown: done` at 16:08:29
+- Later peer/Masternode-related warnings appeared, but the log contained no
+  LevelDB corruption or fatal mmap error
+
+The V2 LevelDB scan is approximately 7.3x **slower** than the earlier
+mmap-enabled run, despite successful mapping. The 29.3-second wallet load also
+suggests system-wide I/O, cache, or resource contention is plausible.
+These are hypotheses, not measured causes; the two days had different cache and
+network states. **Neither this log nor the earlier pair proves a causal startup
+speedup from mmap.** Further code changes or repeated user-operated timing
+benchmarks are not justified on this evidence alone.
+
+Next gate is an engineering review of mapping lifetime, Windows file-operation
+semantics, and the diagnostic branch delta before proposing any production PR.
+Keep the experiment opt-in; do not modify `master` or Draft PR #2.
 
 ## Windows build validation checklist
 
