@@ -48,6 +48,38 @@ Experimental Windows mmap enabled for blocks/index LevelDB table reads
 This log line means the optimization is enabled. It does not by itself prove
 that every table was mapped or that startup became faster.
 
+### Low-overhead mmap diagnostics (2026-10-12)
+
+After the block-index stage completes with the opt-in flag enabled, the
+program now emits **one** additional diagnostic line:
+
+```
+Windows block-index mmap summary: attempts=N mapped=N fallback=N (limit=N open=N size=N mapping=N view=N)
+```
+
+Counts refer to eligible `blocks/index/*.ldb` / `*.sst` random-access file
+**open attempts**, not to individual reads or bytes. They use Windows atomic
+increments on the file-open path only, so millions of block-index row reads do
+not individually increment counters. Statistics are process-wide snapshots;
+concurrent opens around the snapshot can make fields briefly inconsistent.
+
+- `attempts`: eligible SST file opens considered for mmap
+- `mapped`: successfully mapped files with a constructed mmap reader
+- `fallback`: number of mmap attempts that fell back to the original
+  `ReadFile` reader (sum of all five reasons); this does **not** guarantee
+  that the fallback reader itself opened successfully
+- `limit`: 1000-view limiter exhausted
+- `open`: opening the eligible SST file for mapping failed
+- `size`: size query, zero-length, or unsupported file size
+- `mapping`: `CreateFileMappingW` failed
+- `view`: `MapViewOfFile` failed
+
+`mapped > 0` confirms actual mapped SST opens. `attempts = 0` with the
+option enabled warrants checking whether the build is current and the expected
+SST files were actually opened. No per-file path, wallet contents, or private
+information is logged by these counters. The existing enablement line remains
+unchanged. Omitting the opt-in flag produces no diagnostic summary.
+
 ## Scope restrictions
 
 The mmap path is attempted only when all of the following are true:
@@ -175,20 +207,37 @@ Completed before Windows runtime benchmarking:
   separators/case, wrong extensions, chainstate, nested paths, EOF, past-EOF,
   `UINT64_MAX`, and large-size overflow cases: PASS
 
-## Build status
+## Build and real-Windows runtime status
 
-**Not yet cross-compiled on Windows/x86_64 from this branch.**
+A previously built experimental Windows Qt executable was tested by the user on
+2026-10-10 with an existing wallet and block-index database. Two independent
+log captures are available in the project conversation:
 
-The current execution environment used for this source pass has a native Linux
-`g++` but does not contain `x86_64-w64-mingw32-g++`, and this repository has
-no existing GitHub Actions workflow that can provide an equivalent Windows
-build automatically.
+| Log | mmap option | Block-index rows | LevelDB time | Block-index stage | Startup through Done loading |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `debug_mmap.log` | Not confirmed enabled; no enablement line | 5,082,031 | 168,973 ms | 184,991 ms | approximately 188 s |
+| `debug_mmap2.log` | Enabled; enablement line present | 5,088,092 | 18,932 ms | 32,372 ms | approximately 34 s |
 
-The source is ready for the next validation gate: reproduce the project's known
-Windows x86_64 depends/cross-build and compile the full Qt target from
-`perf/startup-win-mmap`.
+Both logs show successful LevelDB and wallet loading, progress to the Qt main
+interface, and normal shutdown; no block-index consistency errors were reported.
+The opt-in run also continued syncing blocks.
 
-No cold/warm startup benchmark is requested at this stage.
+**Interpretation:** the 2026-10-10 opt-in run was roughly 8.9x faster for the
+LevelDB scan, but the runs were sequential and may differ in Windows OS file
+cache/page-cache state, disk I/O and other conditions. The log confirms the
+opt-in flag, **not** that SST mappings succeeded. The new counters above are
+intended to close that diagnostic gap. No causal speedup is established.
+
+**Current build gate:** the diagnostic changes added 2026-10-12 have passed
+source-level checks only. They **have not** been cross-compiled into a new
+Windows Qt executable or verified by a Windows runtime run. The current
+execution environment contains Linux `g++` but not a MinGW-w64 compiler.
+The SHA of the user's earlier executable has not been independently matched
+to a reproducible build report in this source pass.
+
+No repeat cold/warm startup benchmark is required to validate the new counters.
+A single normal launch with `-winmmapblockindex=1` on a rebuilt executable is
+sufficient for the next evidence collection.
 
 ## Windows build validation checklist
 
@@ -200,16 +249,19 @@ No cold/warm startup benchmark is requested at this stage.
 4. Verify PE32+ / AMD64 output and expected system imports.
 5. Run once without `-winmmapblockindex` to confirm default behavior is
    unchanged.
-6. Run once with `-winmmapblockindex=1` and confirm the enablement log line.
+6. Run once with `-winmmapblockindex=1` and confirm the enablement and
+   new summary log lines, including `mapped > 0` for actual mapped tables.
 7. Confirm the wallet/block index opens normally and no reindex/rescan is
    triggered by the option.
-8. Only after functional validation, decide whether another controlled startup
-   timing comparison is worth doing.
+8. Do not repeat cold/warm timing comparisons unless a subsequent functional
+   investigation requires them.
 
 ## Limitations
 
-- No real Windows runtime result is claimed yet.
-- No startup speed improvement is claimed yet.
+- The prior Windows runtime logs are functional evidence for an earlier binary,
+  not a Windows build/run of the new diagnostic commits.
+- No causal startup speed improvement is claimed; the two runs do not control
+  the Windows filesystem cache and disk conditions.
 - Mapping can change Windows page-fault/cache behavior; that is the hypothesis
   being tested, not a guaranteed optimization.
 - The 1000-view limit is conservative but has not yet been tuned for PEPEPOW.
