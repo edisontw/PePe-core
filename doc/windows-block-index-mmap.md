@@ -276,6 +276,22 @@ Next gate is an engineering review of mapping lifetime, Windows file-operation
 semantics, and the diagnostic branch delta before proposing any production PR.
 Keep the experiment opt-in; do not modify `master` or Draft PR #2.
 
+## Pre-merge safety review (2026-10-13)
+
+A source-level review of mapped SST ownership, cache eviction, Windows file
+mapping lifetime, and LevelDB obsolete-file cleanup is now documented in
+[`windows-block-index-mmap-safety-review.md`](windows-block-index-mmap-safety-review.md).
+
+The review found no demonstrated mapped-reader lifetime violation in the
+current LevelDB code path. However, Windows cannot delete a file while it
+remains mapped, and `DeleteObsoleteFiles` ignores deletion failures. Therefore
+real Windows compaction and obsolete-SST cleanup remain **unverified** even
+though startup mapped 533/533 eligible SST opens successfully. An isolated
+scratch-DB smoke test was added at
+`src/leveldb/db/win_block_index_mmap_smoke.cc` but has **not** yet been built
+or run on Windows. Keep the feature opt-in/default-off and do not merge until
+this regression gate is resolved.
+
 ## Windows build validation checklist
 
 1. Fetch and verify that the branch head contains only the expected mmap
