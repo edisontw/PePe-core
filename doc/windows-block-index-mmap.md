@@ -229,12 +229,13 @@ cache/page-cache state, disk I/O and other conditions. The log confirms the
 opt-in flag, **not** that SST mappings succeeded. The new counters above are
 intended to close that diagnostic gap. No causal speedup is established.
 
-**Current build gate:** the diagnostic changes added 2026-10-12 have passed
-source-level checks only. They **have not** been cross-compiled into a new
-Windows Qt executable or verified by a Windows runtime run. The current
-execution environment contains Linux `g++` but not a MinGW-w64 compiler.
-The SHA of the user's earlier executable has not been independently matched
-to a reproducible build report in this source pass.
+**Current validation status:** source-level checks passed, and the
+2026-10-12 V2 log confirms that a Windows Qt executable with the new counters
+ran successfully against the user's existing database. The specific Windows
+compiler commands, artifact SHA256, and cross-build report have **not** been
+independently verified in this source-review environment (which has Linux
+`g++` but no MinGW-w64 compiler). Therefore a reproducible binary build is
+still a separate review gate; Windows runtime functionality is confirmed.
 
 ### Windows runtime confirmation from 2026-10-12 V2 log
 
