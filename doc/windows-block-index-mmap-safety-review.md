@@ -98,10 +98,36 @@ scratch files. For any failure, preserve the sandbox data, console output and
 Windows error code; do not run `-reindex` or `-forcecompactdb` against the
 real wallet to investigate.
 
+## 2026-10-14 Windows smoke: scratch directory creation failure
+
+The user executed the Windows x86_64 standalone executable that was built
+from the prior `e6c5b821` source and obtained:
+
+```text
+FAIL create scratch root: IO error: C:\\Users\\yench\\AppData\\Local\\Temp\\pepepow-mmap-test\\pepe-mmap-smoke-readfile-15252\\: Could not create directory.
+```
+
+This happened **before the first ReadFile or mmap case started**, so it is
+neither a mmap regression nor a compaction pass/fail. The old vendored Windows
+`Win32Env::CreateDir` appends a trailing backslash and recursively calls
+`CreateDirectory`; an already-created target may be attempted again and
+produce a generic failure. The test harness now creates its isolated scratch
+hierarchy using `CreateDirectoryA` with normalized separators and without
+the problematic trailing backslash. The production LevelDB implementation is
+unchanged. Win32 error codes are also emitted if scratch setup still fails.
+
+**A previously compiled smoke executable is stale**: it cannot inherit the
+GitHub source change. Rebuild the standalone Windows x86_64 executable from
+the latest `perf/startup-win-mmap` commit and rerun it against an existing,
+writable scratch parent directory. Do not treat the previous ZIP/EXE hashes as
+valid hashes for the rebuilt artifact. The source patch has not yet been
+compiled or Windows-runtime validated.
+
 ## Remaining gates / limits
 
-- Standalone Windows compile + execution: **NOT RUN** in this source-review
-  environment (MinGW-w64 and Wine/Windows runtime unavailable).
+- Earlier Windows standalone EXE: **attempted, setup FAIL** before the
+  ReadFile/mmap tests. Patched standalone source: **NOT YET REBUILT OR RUN**;
+  MinGW-w64 and Wine/Windows runtime are unavailable in this review environment.
 - `FileShare` and memory-mapped deletion behavior can differ from standard
   POSIX unlink semantics. A Windows runtime pass is therefore mandatory before
   recommending production enablement.
