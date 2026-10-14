@@ -10,9 +10,13 @@ Companion test: `src/leveldb/db/win_block_index_mmap_smoke.cc`
 - Source-level review completed.
 - Real Windows Qt V2 startup: `533/533` eligible SST opens mapped, `0` fallback;
   block index/chainstate/wallet opened and the process subsequently shut down.
-- **Compaction/delete/rename correctness has not yet been demonstrated under
-  mmap**. The isolated test source is added, but has not been built/executed
-  in Windows. This is a pre-merge gate.
+- **Windows x86_64 compaction smoke PASS (2026-10-14)**: the corrected
+  standalone executable passed the ReadFile baseline and opt-in mmap case,
+  including synthetic writes, forced compactions, value checks, SST count
+  checks and scratch-database destruction.
+- This does **not** prove Windows rename behavior or all concurrent-reader
+  deletion races. The exact rebuilt EXE hash/source provenance is not
+  independently established by the console output alone.
 - No changes to `master`, no changes to the existing Draft PR #2, and no
   assertion of a reproducible speed improvement.
 
@@ -123,14 +127,44 @@ writable scratch parent directory. Do not treat the previous ZIP/EXE hashes as
 valid hashes for the rebuilt artifact. The source patch has not yet been
 compiled or Windows-runtime validated.
 
+## 2026-10-14 Windows smoke: corrected executable PASS
+
+The user reran the corrected Windows x86_64 smoke executable on Windows and
+provided the following PowerShell console output:
+
+```text
+PASS readfile live_tables=2 disk_tables=2 mmap_attempts=0 mapped=0
+PASS mmap live_tables=2 disk_tables=2 mmap_attempts=212 mapped=212
+PASS Windows block-index mmap compaction regression
+```
+
+**Result: PASS for the synthetic standalone compaction and obsolete-SST
+cleanup gate.** The baseline remained on ReadFile (no mmap attempts), while
+the opt-in test recorded 212 eligible opens and 212 successful mappings.
+In both modes, there were two LevelDB live SST tables and two files on disk;
+no orphan SST files were detected at the test's final checkpoint. The smoke
+also returned success after attempting to destroy its scratch database.
+
+This is actual user-reported Windows runtime evidence, not just a PE32+
+binary-header check. The console output does not contain the executable's
+SHA256 or build-commit identification, so exact binary provenance has not
+been independently verified from this transcript. It also does not cover
+a reader intentionally held open throughout obsolete-file deletion or all
+possible external rename/file-share races.
+
+The prior directory-creation error was addressed in the test harness via a
+native Windows directory creation helper; production LevelDB code was
+not modified by that fix.
+
 ## Remaining gates / limits
 
-- Earlier Windows standalone EXE: **attempted, setup FAIL** before the
-  ReadFile/mmap tests. Patched standalone source: **NOT YET REBUILT OR RUN**;
-  MinGW-w64 and Wine/Windows runtime are unavailable in this review environment.
+- Windows synthetic standalone smoke test: **PASS on user Windows host**
+  for both ReadFile and mmap after the test-harness directory fix.
+  An independent rebuild and artifact SHA/source attestation are still
+  unavailable in this review environment.
 - `FileShare` and memory-mapped deletion behavior can differ from standard
-  POSIX unlink semantics. A Windows runtime pass is therefore mandatory before
-  recommending production enablement.
+  POSIX unlink semantics. Synthetic compaction/cleanup was exercised but
+  held-open iterator deletion/rename races remain untested.
 - A passing smoke test would demonstrate synthetic compaction and cleanup, not
   a guarantee across all historical data or concurrent external processes.
 - The legacy Windows path conversion uses fixed-size `MAX_PATH` buffers;
@@ -144,6 +178,9 @@ compiled or Windows-runtime validated.
   mmap-enabled scans), and the V2 wallet load was also slow. No reliable
   speedup claim is supported.
 
-**Decision:** keep `-winmmapblockindex` experimental and default-off. Do
-not propose merge until the isolated Windows regression has executed
-successfully, or the project has explicitly accepted the cleanup risk.
+**Decision:** the standalone Windows compaction/cleanup smoke gate has
+passed. The feature remains opt-in/default-off because performance benefit
+is not yet causally established, and concurrent-reader/rename coverage remains
+limited. Proceed to a small, independent maintainer-review proposal only after
+verifying the production patch can be cleanly separated from Qt PR #2 and
+historical diagnostics. Do not merge automatically.
