@@ -12,6 +12,7 @@
 #include "leveldb/iterator.h"
 
 #include <process.h>
+#include <windows.h>
 #include <cstdlib>
 #include <iostream>
 #include <string>
@@ -22,6 +23,23 @@ namespace {
 bool Check(const leveldb::Status& s, const std::string& operation) {
     if (s.ok()) return true;
     std::cerr << "FAIL " << operation << ": " << s.ToString() << "\n";
+    return false;
+}
+
+// The vendored Windows LevelDB Env::CreateDir appends a trailing
+// backslash before recursively creating directories. On some Windows paths
+// this causes an extra CreateDirectory attempt after the directory already
+// exists (ERROR_ALREADY_EXISTS). Create the isolated scratch directory using
+// the native API without a trailing separator; leave the production Env alone.
+bool CreateScratchDir(const std::string& name, const char* label) {
+    std::string native = name;
+    for (size_t i = 0; i < native.size(); ++i) {
+        if (native[i] == '/') native[i] = '\\\\';
+    }
+    if (::CreateDirectoryA(native.c_str(), NULL)) return true;
+    const DWORD error = ::GetLastError();
+    std::cerr << "FAIL create " << label << ": " << native
+              << " (Win32 error " << static_cast<unsigned long>(error) << ")\\n";
     return false;
 }
 
@@ -45,9 +63,9 @@ bool RunCase(const std::string& parent, const std::string& mode, bool use_mmap) 
         return false;
     }
 
-    if (!Check(env->CreateDir(root), "create scratch root") ||
-        !Check(env->CreateDir(blocks), "create blocks directory") ||
-        !Check(env->CreateDir(dbname), "create scratch index")) {
+    if (!CreateScratchDir(root, "scratch root") ||
+        !CreateScratchDir(blocks, "blocks directory") ||
+        !CreateScratchDir(dbname, "scratch index")) {
         return false;
     }
 
