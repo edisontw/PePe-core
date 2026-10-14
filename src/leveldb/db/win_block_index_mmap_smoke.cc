@@ -34,12 +34,12 @@ bool Check(const leveldb::Status& s, const std::string& operation) {
 bool CreateScratchDir(const std::string& name, const char* label) {
     std::string native = name;
     for (size_t i = 0; i < native.size(); ++i) {
-        if (native[i] == '/') native[i] = '\\\\';
+        if (native[i] == '/') native[i] = '\\';
     }
     if (::CreateDirectoryA(native.c_str(), NULL)) return true;
     const DWORD error = ::GetLastError();
     std::cerr << "FAIL create " << label << ": " << native
-              << " (Win32 error " << static_cast<unsigned long>(error) << ")\\n";
+              << " (Win32 error " << static_cast<unsigned long>(error) << ")\n";
     return false;
 }
 
