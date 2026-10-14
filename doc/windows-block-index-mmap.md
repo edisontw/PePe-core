@@ -283,14 +283,31 @@ mapping lifetime, and LevelDB obsolete-file cleanup is now documented in
 [`windows-block-index-mmap-safety-review.md`](windows-block-index-mmap-safety-review.md).
 
 The review found no demonstrated mapped-reader lifetime violation in the
-current LevelDB code path. However, Windows cannot delete a file while it
-remains mapped, and `DeleteObsoleteFiles` ignores deletion failures. Therefore
-real Windows compaction and obsolete-SST cleanup remain **unverified** even
-though startup mapped 533/533 eligible SST opens successfully. An isolated
-scratch-DB smoke test was added at
-`src/leveldb/db/win_block_index_mmap_smoke.cc` but has **not** yet been built
-or run on Windows. Keep the feature opt-in/default-off and do not merge until
-this regression gate is resolved.
+current LevelDB code path. Windows normally prevents deleting mapped files,
+and `DeleteObsoleteFiles` ignores failed deletions, so a dedicated scratch-DB
+test was added at `src/leveldb/db/win_block_index_mmap_smoke.cc`.
+
+**2026-10-14 Windows regression PASS (user-reported console output):**
+
+```text
+PASS readfile live_tables=2 disk_tables=2 mmap_attempts=0 mapped=0
+PASS mmap live_tables=2 disk_tables=2 mmap_attempts=212 mapped=212
+PASS Windows block-index mmap compaction regression
+```
+
+The corrected standalone executable ran synthetic compaction and value checks
+in both modes, verified no surplus physical SST files against LevelDB's live
+file counts, and completed scratch cleanup. The earlier Win32 scratch
+directory-creation failure was fixed **only in the test harness**, not in
+production Core. This smoke confirms basic Windows mmap compaction/cleanup,
+but not held-open iterator deletion races or every possible Windows rename
+scenario. Build-commit identity/EXE SHA256 were not included in the console
+output. The 2026-10-12 startup run also mapped 533/533 eligible SST opens
+successfully, without fallback.
+
+Keep mmap opt-in/default-off; no reliable causal startup speedup has been
+established. The next gate is separating the minimal production mmap patch
+from the Qt performance and diagnostic changes for maintainer review.
 
 ## Windows build validation checklist
 
