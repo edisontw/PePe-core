@@ -1,7 +1,7 @@
 # PEPEPOW Windows Qt integrated candidate — validation record (2026-10-14)
 
 **Windows functional and real large-history Qt GUI smoke test: PASS.**
-**Artifact-source provenance: partially checked; not a release.**
+**Windows ZIP, EXE, and builder-report provenance checks: PASS (user Windows PowerShell + manifest); this is not an official release or independent reproducible-build proof.**
 
 ## Source and scope
 
@@ -15,8 +15,25 @@
 - `PEPEPOW-Qt-win64-integrated-3bf4ab3.zip` (GitHub file size **29,403,390 bytes**).
 - Published ZIP SHA256 (from companion `.zip.sha256`):
   `11b0a0481fdcd7acddc4b5ef66aa3cb91f9f32e088bae966ecf7889d88ace766`.
-- This review accessed the published checksum **but could not re-download the binary** in its analysis environment; a local independent ZIP SHA256 comparison is pending.
-- An **integrated EXE SHA256 and clean-source compiler report are not separately published** on this artifact branch; the older isolated PR #3 EXE SHA256 is not applicable. The source commit association is reported by the build process and artifact naming, not independently established through reproducible build comparison.
+- **2026-10-14 Windows PowerShell confirmation:** `PASS: downloaded integrated ZIP SHA256 matches published checksum` for the downloaded file.
+- **EXE:** `PEPEPOW_qt.exe`, **46,510,667 bytes**, SHA256 `ea5709dd02b38de68db0615209ef21369687ebb65b444ab72daa4a832ee34d65`. The Windows verification output matches the internal `SHA256SUMS.txt`, `BUILD-REPORT.md`, and `STATIC-CHECKS.json` from the user's integrated package.
+- The verifier found the exact required source SHA `3bf4ab301cc5bbddc854dd4dd07010bdf3de3e13` in both the package's `BUILD-REPORT.md` and `SOURCE-PROVENANCE.txt`; the build report states this source was fetched and archived from `MattF42/PePe-core:master`. The report also records an Ubuntu 24.04.5 / MinGW-w64 x86_64 GCC 13.2 / static Qt 5.5.0 cross-build with PASS and PE32+ AMD64 static checks.
+- Builder metadata and the downloaded files now agree; this is **package integrity and builder-declared source provenance verification**, not a second independent reproduction of identical compiler output or cryptographic attestation that the runtime log originated from this exact EXE. The prior standalone PR #3 EXE has a different SHA256 and must not be conflated with this integration build.
+
+## Local verifier output — 2026-10-14 (user-provided)
+
+```text
+PASS: downloaded integrated ZIP SHA256 matches published checksum
+EXE bytes: 46510667
+EXE SHA256: ea5709dd02b38de68db0615209ef21369687ebb65b444ab72daa4a832ee34d65
+PASS: internal manifest contains EXE checksum: SHA256SUMS.txt
+PASS: declared integrated source SHA appears in: BUILD-REPORT.md
+PASS: declared integrated source SHA appears in: SOURCE-PROVENANCE.txt
+ZIP SHA256: 11b0a0481fdcd7acddc4b5ef66aa3cb91f9f32e088bae966ecf7889d88ace766
+EXPECTED SOURCE SHA: 3bf4ab301cc5bbddc854dd4dd07010bdf3de3e13
+```
+
+The verifier unpacks into a Windows temporary folder, does not run the wallet, and reports that agreement proves file identity/integrity, **not** independent reproducible compilation. Runtime behavior was validated separately below.
 
 ## Windows runtime evidence (user log `debug_pr3839.log`)
 
@@ -41,6 +58,6 @@ Do **not** publish the raw user log: it includes network and wallet-related data
 ## Important limitations / remaining release gates
 
 - **Do not claim mmap causally speeds up startup:** sequential runs have different file cache, wallet and chain-catch-up conditions.
-- Complete final artifact checks: independently calculate downloaded ZIP SHA256; calculate extracted EXE SHA256 and reconcile against an integrated builder manifest, if present; retain a source commit/toolchain provenance report.
+- **Completed:** the user independently calculated the downloaded ZIP SHA256 on Windows and verified the EXE checksum, size, and manifest; both packaged provenance files name the correct integrated commit. The uploader's build report and static-check metadata are retained by the user; the GitHub artifact branch presently distributes the ZIP and the ZIP checksum, plus this validation summary.
 - Before production release, maintainer may review Windows mapped-view file lifetime/deletion races and select version/release packaging. Mmap stays opt-in, default-off.
 - This artifact branch is for testing. Neither `master` nor an official GitHub release was modified to create this validation record.
