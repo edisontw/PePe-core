@@ -1,0 +1,3 @@
+cf18443d3bb8b69b0a38c4f521d049acde2a1e8bfce1685d86822b1d83a8fadb  PEPEPOW-afe0c2e-windows-x86_64-test.zip
+9c2f42c6759c967d615565eb2b26452b9597e18bc5b0bf0fee3fb1bcb702b287  PEPEPOW-afe0c2e-linux-aarch64-test.tgz
+4e33cbc2f4583b2e0204c657701fec2867abbf5600411cdeab150d8995400993  PEPEPOW-afe0c2e-linux-x86_64-test.tgz
