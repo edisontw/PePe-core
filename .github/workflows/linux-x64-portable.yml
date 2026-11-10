@@ -50,7 +50,7 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/artifact" "$RUNNER_TEMP/test-image"
           tar -xzf pepe-linux-x86_64-portable.tgz -C "$RUNNER_TEMP/artifact"
-          printf 'FROM ubuntu:%s\nRUN apt-get update && apt-get install -y --no-install-recommends libgl1 fontconfig fonts-dejavu-core xvfb xauth && rm -rf /var/lib/apt/lists/*\n' "$UBUNTU_VERSION" > "$RUNNER_TEMP/test-image/Dockerfile"
+          printf 'FROM ubuntu:%s\nRUN apt-get update && apt-get install -y --no-install-recommends binutils libgl1 fontconfig fonts-dejavu-core xvfb xauth && rm -rf /var/lib/apt/lists/*\n' "$UBUNTU_VERSION" > "$RUNNER_TEMP/test-image/Dockerfile"
           docker build -t pepe-compat "$RUNNER_TEMP/test-image"
           docker run --rm --network=none -v "$RUNNER_TEMP/artifact:/artifact:ro" \
             -v "$GITHUB_WORKSPACE/contrib/linux-portable/smoke.sh:/smoke.sh:ro" \

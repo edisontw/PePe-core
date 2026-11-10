@@ -28,7 +28,7 @@ DESKTOP
 cp "$source_dir/contrib/linux-portable/pepepow-256.png" "$tools_dir/pepepow.png"
 export APPIMAGE_EXTRACT_AND_RUN=1 QMAKE=/usr/bin/qmake ARCH=x86_64
 cd "$tools_dir"
-./linuxdeploy-x86_64.AppImage --appdir "$tools_dir/AppDir" --executable "$build_dir/src/qt/PEPEPOW_qt" --executable "$build_dir/src/PEPEPOWd" --executable "$build_dir/src/PEPEPOW-cli" --desktop-file "$tools_dir/pepepow.desktop" --icon-file "$tools_dir/pepepow.png" --plugin qt
+./linuxdeploy-x86_64.AppImage --appdir "$tools_dir/AppDir" --executable "$build_dir/src/qt/PEPEPOW_qt" --desktop-file "$tools_dir/pepepow.desktop" --icon-file "$tools_dir/pepepow.png" --plugin qt
 for lib in libharfbuzz.so.0 libfontconfig.so.1 libfreetype.so.6 libSM.so.6 libICE.so.6 libssl.so.1.1; do
     cp -L "/usr/lib/x86_64-linux-gnu/$lib" "$tools_dir/AppDir/usr/lib/$lib"
 done
@@ -42,16 +42,16 @@ assert s.count(needle)==1
 p.write_text(s.replace(needle,'export LD_LIBRARY_PATH="$this_dir/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"\n\n'+needle))
 PY
 ./appimagetool-x86_64.AppImage --runtime-file "$tools_dir/runtime-x86_64" "$tools_dir/AppDir" "$output_dir/PEPEPOW_qt.AppImage"
-mkdir -p "$output_dir/bin" "$output_dir/lib"
-cp "$tools_dir/AppDir/usr/bin/PEPEPOWd" "$tools_dir/AppDir/usr/bin/PEPEPOW-cli" "$output_dir/bin/"
-for lib in libboost_filesystem.so.1.71.0 libboost_program_options.so.1.71.0 libboost_thread.so.1.71.0 libboost_chrono.so.1.71.0 libcrypto.so.1.1 libevent_pthreads-2.1.so.7 libevent-2.1.so.7 libopenlibm.so.4; do
-    cp -L "$tools_dir/AppDir/usr/lib/$lib" "$output_dir/lib/$lib"
+mkdir -p "$output_dir/bin"
+for binary in PEPEPOWd PEPEPOW-cli PEPEPOW-tx; do
+    install -m 755 "$build_dir/src/$binary" "$output_dir/bin/$binary"
+    strip --strip-all "$output_dir/bin/$binary"
 done
 cp "$source_dir/COPYING" "$output_dir/"
 cat > "$output_dir/README.md" <<'DOC'
 # PEPEPOW Linux x86_64 portable test package
 
-This is a CI test build, not an official release. Run `./PEPEPOW_qt.AppImage` in a graphical environment; on systems without FUSE, use `APPIMAGE_EXTRACT_AND_RUN=1`. Run `./bin/PEPEPOWd` and `./bin/PEPEPOW-cli` from any directory while keeping `bin/` and `lib/` together. Standard desktop libraries including libGL and font configuration are required. Verify files with `sha256sum -c SHA256SUMS.txt`. Use backed-up data and test funds. Ubuntu 22.04/24.04 Xvfb tests do not establish real desktop or live-network behavior.
+This is a CI test build, not an official release. Run `./PEPEPOW_qt.AppImage` in a graphical environment; on systems without FUSE, use `APPIMAGE_EXTRACT_AND_RUN=1`. The standalone `bin/PEPEPOWd`, `bin/PEPEPOW-cli`, and `bin/PEPEPOW-tx` can be copied individually; they require standard Linux system libraries but no bundled library directory. Standard desktop libraries including libGL and font configuration are required. Verify files with `sha256sum -c SHA256SUMS.txt`. Use backed-up data and test funds. Ubuntu 22.04/24.04 Xvfb tests do not establish real desktop or live-network behavior.
 DOC
 printf 'Source commit: %s\nCompiler: %s\n' "${PEPE_SOURCE_SHA:-unknown}" "$(g++ -dumpfullversion -dumpversion)" > "$output_dir/BUILD-INFO.txt"
 (cd "$output_dir"; find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt; sha256sum -c SHA256SUMS.txt)
