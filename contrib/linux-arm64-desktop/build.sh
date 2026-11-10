@@ -11,7 +11,7 @@ p = Path('depends/packages/bdb.mk')
 s = p.read_text()
 needle = 'define $(package)_preprocess_cmds\n'
 assert s.count(needle) == 1
-p.write_text(s.replace(needle, needle + '  rm -f dist/config.sub && cp $(BASEDIR)/config.sub dist/config.sub && \\\n'))
+p.write_text(s.replace(needle, needle + '  rm -f dist/config.sub dist/config.guess && cp $(BASEDIR)/config.sub $(BASEDIR)/config.guess dist/ && \\\n'))
 PY
 # Use the same repository depends libraries as existing ARM64 headless builds.
 make -C depends -j4 HOST=aarch64-linux-gnu NO_QT=1 NO_UPNP=1 NO_ZMQ=1
