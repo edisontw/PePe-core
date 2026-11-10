@@ -30,6 +30,6 @@ p.write_text(s)
 PY
 ./autogen.sh
 cd /tmp/pepe-build
-CONFIG_SITE=/tmp/pepe-qt-config.site /tmp/pepe-source/configure --with-gui=qt5 --without-miniupnpc --disable-tests --disable-bench --disable-zmq CXXFLAGS='-O2 -g0'
+CONFIG_SITE=/tmp/pepe-qt-config.site /tmp/pepe-source/configure --host=aarch64-linux-gnu --prefix=/tmp/pepe-source/depends/aarch64-linux-gnu --with-gui=qt5 --with-qt-bindir=/usr/lib/qt5/bin --without-miniupnpc --disable-tests --disable-bench --disable-zmq CXXFLAGS='-O2 -g0'
 make -C src -j4 qt/PEPEPOW_qt PEPEPOWd PEPEPOW-cli PEPEPOW-tx CXXFLAGS='-O2 -g0 -include deque -include condition_variable'
 exec /source/contrib/linux-arm64-desktop/package.sh /tmp/pepe-source /tmp/pepe-build /output
