@@ -1,7 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 [ "$(uname -m)" = aarch64 ] || { echo 'Native aarch64 builder required' >&2; exit 1; }
-mkdir -p /tmp/pepe-source /tmp/pepe-build /output
+export CCACHE_DIR=/tmp/pepe-ccache
+mkdir -p /tmp/pepe-source /tmp/pepe-build "$CCACHE_DIR" /output
 cp -a /source/. /tmp/pepe-source/
 cd /tmp/pepe-source
 # Berkeley DB 4.8 predates aarch64; update only its build-system architecture map.
