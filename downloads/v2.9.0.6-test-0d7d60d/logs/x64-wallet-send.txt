@@ -1,0 +1,2 @@
+PEPEPOW Core server starting
+PASS: isolated regtest wallet send and transaction lookup

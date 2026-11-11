@@ -1,0 +1,7 @@
+PEPEPOW Core Daemon version v2.9.0.6-g
+PEPEPOW Core RPC client version v2.9.0.6-g
+PEPEPOW Core server starting
+Unknown host IFA type: 11
+Unknown host IFA type: 11
+PEPEPOW Core server starting
+/smoke.sh: line 42:    72 Segmentation fault      QT_QPA_PLATFORM=offscreen qemu-aarch64 -E LD_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu "$root/PEPEPOW_qt" -regtest -datadir="$datadir" -server -listen=0 -dnsseed=0 -discover=0 -choosedatadir=0 > "$work/qt.log" 2>&1

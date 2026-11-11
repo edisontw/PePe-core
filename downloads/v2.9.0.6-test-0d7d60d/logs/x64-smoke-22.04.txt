@@ -1,0 +1,33 @@
+./BUILD-INFO.txt: OK
+./COPYING: OK
+./PEPEPOW_qt: OK
+./README.md: OK
+./bin/PEPEPOW-cli: OK
+./bin/PEPEPOW-tx: OK
+./bin/PEPEPOWd: OK
+ELF dependencies: PEPEPOWd
+ 0x0000000000000001 (NEEDED)             Shared library: [libdl.so.2]
+ 0x0000000000000001 (NEEDED)             Shared library: [libanl.so.1]
+ 0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]
+ 0x0000000000000001 (NEEDED)             Shared library: [libpthread.so.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]
+ 0x0000000000000001 (NEEDED)             Shared library: [ld-linux-x86-64.so.2]
+ELF dependencies: PEPEPOW-cli
+ 0x0000000000000001 (NEEDED)             Shared library: [libdl.so.2]
+ 0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]
+ 0x0000000000000001 (NEEDED)             Shared library: [libpthread.so.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]
+ 0x0000000000000001 (NEEDED)             Shared library: [ld-linux-x86-64.so.2]
+ELF dependencies: PEPEPOW-tx
+ 0x0000000000000001 (NEEDED)             Shared library: [libdl.so.2]
+ 0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]
+ 0x0000000000000001 (NEEDED)             Shared library: [libpthread.so.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]
+ 0x0000000000000001 (NEEDED)             Shared library: [ld-linux-x86-64.so.2]
+PEPEPOW Core RPC client version v2.9.0.6-g
+PEPEPOW Core Daemon version v2.9.0.6-g
+PEPEPOW Core server starting
+PEPEPOW Core server stopping
+PEPEPOW Core server starting
+PEPEPOW Core server stopping
+PASS: checksum, standalone ELF audit and transaction tool, daemon regtest RPC, wallet, mining and Qt/Xvfb startup

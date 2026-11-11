@@ -1,0 +1,45 @@
+PE imports: PEPEPOW_qt.exe
+  ADVAPI32.dll
+  CRYPT32.dll
+  GDI32.dll
+  IMM32.dll
+  KERNEL32.dll
+  msvcrt.dll
+  ole32.dll
+  OLEAUT32.dll
+  SHELL32.dll
+  SHLWAPI.dll
+  USER32.dll
+  WINMM.dll
+  WS2_32.dll
+PE imports: PEPEPOWd.exe
+  ADVAPI32.dll
+  GDI32.dll
+  KERNEL32.dll
+  msvcrt.dll
+  SHELL32.dll
+  SHLWAPI.dll
+  USER32.dll
+  WS2_32.dll
+PE imports: PEPEPOW-cli.exe
+  ADVAPI32.dll
+  GDI32.dll
+  KERNEL32.dll
+  msvcrt.dll
+  SHELL32.dll
+  USER32.dll
+  WS2_32.dll
+PE imports: PEPEPOW-tx.exe
+  ADVAPI32.dll
+  GDI32.dll
+  KERNEL32.dll
+  msvcrt.dll
+  SHELL32.dll
+  USER32.dll
+  WS2_32.dll
+./BUILD-INFO.txt: OK
+./COPYING: OK
+./PEPEPOW-cli.exe: OK
+./PEPEPOW-tx.exe: OK
+./PEPEPOW_qt.exe: OK
+./PEPEPOWd.exe: OK

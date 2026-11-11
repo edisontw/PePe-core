@@ -1,0 +1,7 @@
+PEPEPOW Core Daemon version v2.9.0.6-g
+PEPEPOW Core RPC client version v2.9.0.6-g
+PEPEPOW Core server starting
+Unknown host IFA type: 11
+Unknown host IFA type: 11
+PEPEPOW Core server starting
+PASS: ARM64 cross-built binary QEMU versions, tx utility, daemon RPC/wallet/send/lookup/stop and Qt Xvfb startup
