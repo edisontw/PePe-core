@@ -5,7 +5,7 @@ Source: `2f7c722221a51b3fcecd0ca0370d7e22d1469115`; branch `test/rc-wallet-recov
 | Test | Build | Execution | Result | Evidence |
 |---|---|---|---|---|
 | A. Wallet persistence | PASS (ASan) | RUN | FAIL: write failure followed by RPC success; transaction absent after restart | `qa/rc-edge/wallet_persistence.py` |
-| B. Qt worker shutdown | PASS (ASan) | IN PROGRESS | INCONCLUSIVE | `qa/rc-edge/qt_shutdown.sh` |
+| B. Qt worker shutdown | PASS (ASan) | RUN | FAIL in preparation window; other windows in progress | `qa/rc-edge/qt_shutdown.sh` |
 | C. Recovery orphan replies | PASS (ASan) | RUN | FAIL before fix: 2 of 22 assertions | `qa/rc-edge/recovery_tests.inc` |
 
 ## A — observed in isolated regtest
@@ -13,6 +13,10 @@ Source: `2f7c722221a51b3fcecd0ca0370d7e22d1469115`; branch `test/rc-wallet-recov
 The test matured five UTXOs, injected failures into both transaction-record writes after mempool admission, and observed a successful transaction ID. The transaction was in the mempool and in-memory wallet. After a clean restart with no peers, it was absent from the wallet and mempool, and the confirmed UTXO set returned to its earlier state. A duplicate submission while still in the mempool returned the same transaction ID. This establishes incorrect success reporting and loss of the unpersisted record under the injected condition; it does not establish real network propagation, confirmation or duplicate payment. No production wallet-order change has been made.
 
 A separately injected invalid transaction reached real mempool rejection. The RPC returned an error; confirmed balance, UTXO set and wallet transaction count remained unchanged across restart. The ignored write return is pre-existing; its interaction with the newer admission order needs review.
+
+## B — full application shutdown
+
+A deterministic pause was placed immediately before the worker begins preparing a batch. After RPC shutdown, the test observed wallet deletion before releasing the paused worker. The process then exited with code 134 and a Boost recursive mutex assertion. This reproduces a crash under the controlled timing; it is not an AddressSanitizer use-after-free report and does not establish its natural frequency. The owner had already passed the ordinary interruption/restart scenario; this is a separate whole-process shutdown case. Submission, queued completion and confirmation-wait windows are still being tested.
 
 ## C — constructed orphan state
 
