@@ -75,6 +75,11 @@ replace('src/qt/coincontroldialog.cpp', '    consolidationWaiting = true;\n    c
 replace('src/init.cpp', '#include "init.h"', '#include "init.h"\n#include "edge_test_hooks.h"')
 replace('src/init.cpp', '    delete pwalletMain;\n    pwalletMain = NULL;\n#endif\n    globalVerifyHandle.reset();', '    delete pwalletMain;\n    pwalletMain = NULL;\n    EdgeMark("wallet-deleted");\n#endif\n    globalVerifyHandle.reset();')
 replace('src/masternodeman.cpp', 'CMasternodeMan mnodeman;', 'CMasternodeMan mnodeman;\nint edgeOrphanInsertions = 0;\nint edgeRecoveryReprocesses = 0;')
-replace('src/masternodeman.cpp', '            if(mMnbRecoveryRequests[itMnbReplies->first].first < GetTime()) {', '            const bool edgeWasOrphan = mMnbRecoveryRequests.count(itMnbReplies->first) == 0;\n            if(mMnbRecoveryRequests[itMnbReplies->first].first < GetTime()) {\n                if (edgeWasOrphan) ++edgeOrphanInsertions;')
+recovery_source = (root / 'src/masternodeman.cpp').read_text()
+original = '            if(mMnbRecoveryRequests[itMnbReplies->first].first < GetTime()) {'
+if original in recovery_source:
+    replace('src/masternodeman.cpp', original, '            const bool edgeWasOrphan = mMnbRecoveryRequests.count(itMnbReplies->first) == 0;\n' + original + '\n                if (edgeWasOrphan) ++edgeOrphanInsertions;')
+elif 'auto request = mMnbRecoveryRequests.find(itMnbReplies->first);' not in recovery_source:
+    raise SystemExit('unrecognized recovery implementation')
 replace('src/masternodeman.cpp', '                        CheckMnbAndUpdateMasternodeList(NULL, mnbRecovery, nDos, connman);', '                        ++edgeRecoveryReprocesses;\n                        CheckMnbAndUpdateMasternodeList(NULL, mnbRecovery, nDos, connman);')
 print('Instrumented disposable source:', root)

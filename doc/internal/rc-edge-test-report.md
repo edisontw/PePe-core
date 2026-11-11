@@ -5,8 +5,8 @@ Source: `2f7c722221a51b3fcecd0ca0370d7e22d1469115`; branch `test/rc-wallet-recov
 | Test | Build | Execution | Result | Evidence |
 |---|---|---|---|---|
 | A. Wallet persistence | PASS (ASan) | RUN | FAIL: write failure followed by RPC success; transaction absent after restart | `qa/rc-edge/wallet_persistence.py` |
-| B. Qt worker shutdown | PASS (ASan) | RUN | FAIL in preparation window; other windows in progress | `qa/rc-edge/qt_shutdown.sh` |
-| C. Recovery orphan replies | PASS (ASan) | RUN | FAIL before fix: 2 of 22 assertions | `qa/rc-edge/recovery_tests.inc` |
+| B. Qt worker shutdown | PASS (ASan) | RUN | FAIL in preparation and submission; completion and waiting passed | `qa/rc-edge/qt_shutdown.sh` |
+| C. Recovery orphan replies | PASS (ASan) | RUN | FAIL before fix; PASS after proposed guard: 22/22 assertions | `qa/rc-edge/recovery_tests.inc` |
 
 ## A — observed in isolated regtest
 
@@ -16,11 +16,11 @@ A separately injected invalid transaction reached real mempool rejection. The RP
 
 ## B — full application shutdown
 
-A deterministic pause was placed immediately before the worker begins preparing a batch. After RPC shutdown, the test observed wallet deletion before releasing the paused worker. The process then exited with code 134 and a Boost recursive mutex assertion. This reproduces a crash under the controlled timing; it is not an AddressSanitizer use-after-free report and does not establish its natural frequency. The owner had already passed the ordinary interruption/restart scenario; this is a separate whole-process shutdown case. Submission, queued completion and confirmation-wait windows are still being tested.
+A deterministic pause was placed immediately before the worker begins preparing a batch. After RPC shutdown, the test observed wallet deletion before releasing the paused worker. The process then exited with code 134 and a Boost recursive mutex assertion. This reproduces a crash under the controlled timing; it is not an AddressSanitizer use-after-free report and does not establish its natural frequency. The owner had already passed the ordinary interruption/restart scenario; this is a separate whole-process shutdown case. The submission window also exited 134 after wallet deletion; queued-completion and confirmation-wait windows exited normally and reopened the test wallet. A targeted lifetime fix is being built and has not yet been validated.
 
 ## C — constructed orphan state
 
-The test calls the real `CMasternodeMan::CheckAndRemove`, loads maps through its public serialization format and uses signed replies. Five replies did not reach quorum; six signed stale replies did not reprocess; six signed fresh replies with an expired valid request reached the reprocessing call. Six signed fresh replies without a request caused the original code to insert a default request and reach reprocessing; later cleanup erased the default request. These are constructed conditions, not proof that current live peers can cause that state, and do not explain the 45/47 field counts. A small guard is being evaluated; no quorum, ping freshness, signature, retry, consensus or protocol rule is changed.
+The test calls the real `CMasternodeMan::CheckAndRemove`, loads maps through its public serialization format and uses signed replies. Five replies did not reach quorum; six signed stale replies did not reprocess; six signed fresh replies with an expired valid request reached the reprocessing call. Six signed fresh replies without a request caused the original code to insert a default request and reach reprocessing; later cleanup erased the default request. These are constructed conditions, not proof that current live peers can cause that state, and do not explain the 45/47 field counts. A proposed guard discards orphan reply entries without inserting a request or invoking recovery reprocessing. The same test then passed all 22 assertions, including the valid-request reprocessing path and stale-ping checks. No quorum, ping freshness, signature, retry, consensus or protocol rule is changed.
 
 ## Existing regression tests
 
@@ -40,4 +40,4 @@ python3 /tests/wallet_persistence.py
 ./test/test_dash --run_test=rc_recovery_request_reply_invariants --log_level=test_suite --report_level=detailed
 ```
 
-Qt results and any correction/retest will be added as they complete. This initial report does not claim release qualification.
+The Qt correction and retest will be added as they complete. These results do not claim release qualification.
