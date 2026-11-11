@@ -1,0 +1,22 @@
+Running 1 test case...
+[1;34;49mEntering test module "PEPEPOW Test Suite"
+[0;39;49m[1;34;49m/source/src/test/edge_recovery_tests.inc(70): Entering test case "rc_recovery_request_reply_invariants"
+[0;39;49m[1;36;49mfuture request: retained without reprocessing[0;39;49m
+[1;36;49mexpired request with five replies: no quorum[0;39;49m
+[1;36;49msix signed stale pings: no reprocessing[0;39;49m
+[1;36;49msix signed fresh replies: reached recovery reprocessing[0;39;49m
+/source/src/test/edge_recovery_tests.inc(116): [1;31;49merror: in "rc_recovery_request_reply_invariants": check edgeOrphanInsertions == 0 has failed [1 != 0][0;39;49m
+/source/src/test/edge_recovery_tests.inc(117): [1;31;49merror: in "rc_recovery_request_reply_invariants": check edgeRecoveryReprocesses == 0 has failed [1 != 0][0;39;49m
+[1;36;49morphan replies: no inserted request or reprocessing[0;39;49m
+[1;36;49mretry-expired request: cleanup[0;39;49m
+[1;34;49m/source/src/test/edge_recovery_tests.inc(70): Leaving test case "rc_recovery_request_reply_invariants"; testing time: 477859us
+[0;39;49m[1;34;49mLeaving test module "PEPEPOW Test Suite"; testing time: 477938us
+[0;39;49m
+Test module "PEPEPOW Test Suite" has failed with:
+  1 test case out of 1 failed
+  20 assertions out of 22 passed
+  2 assertions out of 22 failed
+
+  Test case "rc_recovery_request_reply_invariants" has failed with:
+    20 assertions out of 22 passed
+    2 assertions out of 22 failed

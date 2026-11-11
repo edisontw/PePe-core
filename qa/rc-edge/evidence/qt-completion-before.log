@@ -1,0 +1,4 @@
+REACHED completion
+WALLET_DELETED_BEFORE_RELEASE=yes
+QT_EXIT=0
+PASS: completion graceful shutdown and wallet restart

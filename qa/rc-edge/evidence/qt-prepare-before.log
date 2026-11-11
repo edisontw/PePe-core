@@ -1,0 +1,5 @@
+REACHED prepare
+WALLET_DELETED_BEFORE_RELEASE=yes
+/tests/qt_shutdown.sh: line 74:    24 Aborted                 "$build/qt/PEPEPOW_qt" -regtest -datadir="$work/data" -server -listen=0 -dnsseed=0 -discover=0 -connect=0 -choosedatadir=0 > "$work/qt.log" 2>&1
+QT_EXIT=134
+FAIL: Qt shutdown or ASan error

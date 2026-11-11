@@ -96,11 +96,24 @@ with tempfile.TemporaryDirectory(prefix='pepe-edge-wallet-') as tmp:
             if case == 'persistence' and isinstance(response, str) and len(response) == 64:
                 raw = node.rpc('getrawtransaction', response)
                 results['duplicate_in_mempool'] = node.rpc('sendrawtransaction', raw, check=False)
+                results['mempool_after_duplicate'] = node.rpc('getrawmempool')
+                assert results['duplicate_in_mempool'] == response
+                assert results['mempool_after_duplicate'] == [response]
+                decoded = node.rpc('decoderawtransaction', raw)
+                output_addresses = [addr for output in decoded['vout']
+                                    for addr in output['scriptPubKey'].get('addresses', [])]
+                change_addresses = [addr for addr in output_addresses if addr != address]
+                assert len(change_addresses) == 1, 'expected one change output'
+                results['change_address'] = change_addresses[0]
                 results['history_before_restart'] = node.rpc('gettransaction', response, check=False)
             node.stop()
             node.start()
             restarted = node.snapshot()
             history = node.rpc('gettransaction', response, check=False) if raw else None
+            if raw:
+                sampled_change = [node.rpc('getrawchangeaddress') for _ in range(25)]
+                results['change_address_reused_in_next_25'] = results['change_address'] in sampled_change
+                assert not results['change_address_reused_in_next_25'], 'reserved change key reused'
             results[case] = {'rpc_response': response, 'before': simplify(before),
                              'after': simplify(after), 'restart': simplify(restarted),
                              'history_after_restart': history, 'injected': injected,

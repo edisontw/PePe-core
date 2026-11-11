@@ -1,0 +1,4 @@
+REACHED submit
+WALLET_DELETED_BEFORE_RELEASE=no
+QT_EXIT=0
+PASS: submit graceful shutdown and wallet restart

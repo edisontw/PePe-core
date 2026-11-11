@@ -1,0 +1,3 @@
+REACHED waiting
+QT_EXIT=0
+PASS: waiting graceful shutdown and wallet restart

@@ -1,0 +1,236 @@
+PASS rejection: real mempool validation rejection, no phantom wallet spend
+OBSERVED: wallet write failure after mempool acceptance; inspect JSON for RPC, history, UTXOs and keypool
+FAIL: RPC returned success despite an injected wallet persistence failure
+{
+  "change_address": "yYygUXaBHNU8KyqHZoHWGhtjKmXHYFHXyq",
+  "change_address_reused_in_next_25": false,
+  "duplicate_in_mempool": "994a30f62d6b72d86d6ffa0377a50b8c996b2f94f156e6d1d2e8a89296052387",
+  "history_before_restart": {
+    "amount": "0.00000000",
+    "bip125-replaceable": "no",
+    "confirmations": 0,
+    "details": [
+      {
+        "abandoned": false,
+        "account": "",
+        "address": "yYYUPXFAzzTrAMCB6T8eV677qkHRZGn9aF",
+        "amount": "-1000.00000000",
+        "category": "send",
+        "fee": "-0.00000192",
+        "label": "",
+        "vout": 0
+      },
+      {
+        "account": "",
+        "address": "yYYUPXFAzzTrAMCB6T8eV677qkHRZGn9aF",
+        "amount": "1000.00000000",
+        "category": "receive",
+        "label": "",
+        "vout": 0
+      }
+    ],
+    "fee": "-0.00000192",
+    "hex": "010000000197c468bf9ff89744b8084473052dfe85570900cd343e126b77c8bb8b43f97c21000000004847304402202cd394d44cc43a80864ac2c7aec8d5615995a569a27b010d15fb62be9ed09ad602201252a904a5b74803d40b4c7f4667c03fc28f81777cc216aaf46bb321ca54730001feffffff0200e87648170000001976a914861833d21863c3a18a8109f55c817533a562dbb088ac405703c8db5a00001976a9148adcb0cbb008865d73bfa76359554d6e29c18cfd88ac69000000",
+    "instantlock": false,
+    "time": 1794403366,
+    "timereceived": 1794403366,
+    "trusted": true,
+    "txid": "994a30f62d6b72d86d6ffa0377a50b8c996b2f94f156e6d1d2e8a89296052387",
+    "walletconflicts": []
+  },
+  "mempool_after_duplicate": [
+    "994a30f62d6b72d86d6ffa0377a50b8c996b2f94f156e6d1d2e8a89296052387"
+  ],
+  "persistence": {
+    "after": {
+      "balance": "4999999.99999808",
+      "keypoolsize": 19,
+      "mempool": [
+        "994a30f62d6b72d86d6ffa0377a50b8c996b2f94f156e6d1d2e8a89296052387"
+      ],
+      "txcount": 106,
+      "utxo_count": 4,
+      "utxos": [
+        [
+          "1a1c75a01a98f472fc46c7652d281ec75a7d9257ce11bb3a0d53d5452a26b187",
+          0
+        ],
+        [
+          "21c421ae3ee9905a1da1bc0c0ff0816baf6b3cbaa2dfb130c28433f38b1e9650",
+          0
+        ],
+        [
+          "31122bbfa312983dbb9e575717c1c0fb69fd51c04c0219c8c026530e62e3fb3e",
+          0
+        ],
+        [
+          "44fc97932a14e564dda6cb205a3b31709834295e01a070623e33dd9e9ca63371",
+          0
+        ]
+      ]
+    },
+    "before": {
+      "balance": "5000000.00000000",
+      "keypoolsize": 19,
+      "mempool": [],
+      "txcount": 105,
+      "utxo_count": 5,
+      "utxos": [
+        [
+          "1a1c75a01a98f472fc46c7652d281ec75a7d9257ce11bb3a0d53d5452a26b187",
+          0
+        ],
+        [
+          "217cf9438bbbc8776b123e34cd00095785fe2d05734408b84497f89fbf68c497",
+          0
+        ],
+        [
+          "21c421ae3ee9905a1da1bc0c0ff0816baf6b3cbaa2dfb130c28433f38b1e9650",
+          0
+        ],
+        [
+          "31122bbfa312983dbb9e575717c1c0fb69fd51c04c0219c8c026530e62e3fb3e",
+          0
+        ],
+        [
+          "44fc97932a14e564dda6cb205a3b31709834295e01a070623e33dd9e9ca63371",
+          0
+        ]
+      ]
+    },
+    "history_after_restart": {
+      "code": 5,
+      "error": "error code: -5\nerror message:\nInvalid or non-wallet transaction id"
+    },
+    "injected": true,
+    "injection_count": 2,
+    "log_rejected_before_record": false,
+    "restart": {
+      "balance": "5000000.00000000",
+      "keypoolsize": 19,
+      "mempool": [],
+      "txcount": 105,
+      "utxo_count": 5,
+      "utxos": [
+        [
+          "1a1c75a01a98f472fc46c7652d281ec75a7d9257ce11bb3a0d53d5452a26b187",
+          0
+        ],
+        [
+          "217cf9438bbbc8776b123e34cd00095785fe2d05734408b84497f89fbf68c497",
+          0
+        ],
+        [
+          "21c421ae3ee9905a1da1bc0c0ff0816baf6b3cbaa2dfb130c28433f38b1e9650",
+          0
+        ],
+        [
+          "31122bbfa312983dbb9e575717c1c0fb69fd51c04c0219c8c026530e62e3fb3e",
+          0
+        ],
+        [
+          "44fc97932a14e564dda6cb205a3b31709834295e01a070623e33dd9e9ca63371",
+          0
+        ]
+      ]
+    },
+    "rpc_response": "994a30f62d6b72d86d6ffa0377a50b8c996b2f94f156e6d1d2e8a89296052387"
+  },
+  "reject": {
+    "after": {
+      "balance": "5000000.00000000",
+      "keypoolsize": 20,
+      "mempool": [],
+      "txcount": 105,
+      "utxo_count": 5,
+      "utxos": [
+        [
+          "055881cbb9c7180ecc7bee73b8f29fabb835fcaa655dc30cf15b4fa418acca89",
+          0
+        ],
+        [
+          "3580617c185728d2af981319f094f822044656ca0a68b6917ec263c12ce4dc89",
+          0
+        ],
+        [
+          "5af3404f639c7dd798e95b96c746a17c0b95fa11385ef11fee631215588cb5f8",
+          0
+        ],
+        [
+          "609aff1148377bb6e00fa88822f0b694634e0c1b1f0e639462e7f0e9c53e1343",
+          0
+        ],
+        [
+          "f6e16acc2b0173f2a1fe57cb12e41dd757a3ddb9e94b0970efadd47e052c7226",
+          0
+        ]
+      ]
+    },
+    "before": {
+      "balance": "5000000.00000000",
+      "keypoolsize": 19,
+      "mempool": [],
+      "txcount": 105,
+      "utxo_count": 5,
+      "utxos": [
+        [
+          "055881cbb9c7180ecc7bee73b8f29fabb835fcaa655dc30cf15b4fa418acca89",
+          0
+        ],
+        [
+          "3580617c185728d2af981319f094f822044656ca0a68b6917ec263c12ce4dc89",
+          0
+        ],
+        [
+          "5af3404f639c7dd798e95b96c746a17c0b95fa11385ef11fee631215588cb5f8",
+          0
+        ],
+        [
+          "609aff1148377bb6e00fa88822f0b694634e0c1b1f0e639462e7f0e9c53e1343",
+          0
+        ],
+        [
+          "f6e16acc2b0173f2a1fe57cb12e41dd757a3ddb9e94b0970efadd47e052c7226",
+          0
+        ]
+      ]
+    },
+    "history_after_restart": null,
+    "injected": true,
+    "injection_count": 1,
+    "log_rejected_before_record": true,
+    "restart": {
+      "balance": "5000000.00000000",
+      "keypoolsize": 20,
+      "mempool": [],
+      "txcount": 105,
+      "utxo_count": 5,
+      "utxos": [
+        [
+          "055881cbb9c7180ecc7bee73b8f29fabb835fcaa655dc30cf15b4fa418acca89",
+          0
+        ],
+        [
+          "3580617c185728d2af981319f094f822044656ca0a68b6917ec263c12ce4dc89",
+          0
+        ],
+        [
+          "5af3404f639c7dd798e95b96c746a17c0b95fa11385ef11fee631215588cb5f8",
+          0
+        ],
+        [
+          "609aff1148377bb6e00fa88822f0b694634e0c1b1f0e639462e7f0e9c53e1343",
+          0
+        ],
+        [
+          "f6e16acc2b0173f2a1fe57cb12e41dd757a3ddb9e94b0970efadd47e052c7226",
+          0
+        ]
+      ]
+    },
+    "rpc_response": {
+      "code": 4,
+      "error": "error code: -4\nerror message:\nError: The transaction was rejected! This might happen if some of the coins in your wallet were already spent, such as if you used a copy of wallet.dat and coins were spent in the copy but not marked as spent here."
+    }
+  }
+}

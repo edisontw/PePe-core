@@ -1,0 +1,50 @@
+Running 4 test cases...
+[1;34;49mEntering test module "PEPEPOW Test Suite"
+[0;39;49m[1;34;49m/source/src/wallet/test/wallet_tests.cpp(28): Entering test suite "wallet_tests"
+[0;39;49m[1;34;49m/source/src/wallet/test/wallet_tests.cpp(68): Entering test case "coin_selection_tests"
+[0;39;49m[1;34;49m/source/src/wallet/test/wallet_tests.cpp(68): Leaving test case "coin_selection_tests"; testing time: 5957803us
+[0;39;49m[1;34;49m/source/src/wallet/test/wallet_tests.cpp(331): Entering test case "ApproximateBestSubset"
+[0;39;49m[1;34;49m/source/src/wallet/test/wallet_tests.cpp(331): Leaving test case "ApproximateBestSubset"; testing time: 332221us
+[0;39;49m[1;34;49m/source/src/wallet/test/wallet_tests.cpp(28): Leaving test suite "wallet_tests"; testing time: 6290125us
+[0;39;49m[1;34;49m/source/src/test/rpc_wallet_tests.cpp(26): Entering test suite "rpc_wallet_tests"
+[0;39;49m[1;34;49m/source/src/test/rpc_wallet_tests.cpp(28): Entering test case "rpc_addmultisig"
+[0;39;49m[1;34;49m/source/src/test/rpc_wallet_tests.cpp(28): Leaving test case "rpc_addmultisig"; testing time: 281809us
+[0;39;49m[1;34;49m/source/src/test/rpc_wallet_tests.cpp(65): Entering test case "rpc_wallet"
+
+Test module "PEPEPOW Test Suite" has failed with:
+  3 test cases out of 4 passed
+  1 test case out of 4 failed
+  1 test case out of 4 aborted
+  10669 assertions out of 10670 passed
+  1 assertion out of 10670 failed
+
+  Test suite "wallet_tests" has passed with:
+    2 test cases out of 2 passed
+    10606 assertions out of 10606 passed
+
+    Test case "wallet_tests/coin_selection_tests" has passed with:
+      10600 assertions out of 10600 passed
+
+    Test case "wallet_tests/ApproximateBestSubset" has passed with:
+      6 assertions out of 6 passed
+
+  Test suite "rpc_wallet_tests" has failed with:
+    1 test case out of 2 passed
+    1 test case out of 2 failed
+    1 test case out of 2 aborted
+    63 assertions out of 64 passed
+    1 assertion out of 64 failed
+
+    Test case "rpc_wallet_tests/rpc_addmultisig" has passed with:
+      13 assertions out of 13 passed
+
+    Test case "rpc_wallet_tests/rpc_wallet" was aborted with:
+      50 assertions out of 51 passed
+      1 assertion out of 51 failed
+
+[0;39;49munknown location(0): [4;31;49mfatal error: in "rpc_wallet_tests/rpc_wallet": std::runtime_error: Invalid address[0;39;49m
+/source/src/test/rpc_wallet_tests.cpp(207): [1;36;49mlast checkpoint[0;39;49m
+[1;34;49m/source/src/test/rpc_wallet_tests.cpp(65): Leaving test case "rpc_wallet"; testing time: 1214060us
+[0;39;49m[1;34;49m/source/src/test/rpc_wallet_tests.cpp(26): Leaving test suite "rpc_wallet_tests"; testing time: 1495949us
+[0;39;49m[1;34;49mLeaving test module "PEPEPOW Test Suite"; testing time: 7786158us
+[0;39;49m
