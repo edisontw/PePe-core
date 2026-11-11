@@ -1,0 +1,45 @@
+name: RC2 Linux package composition audit (read-only)
+on:
+  push:
+    branches:
+      - audit/rc2-linux-package-size-20261112
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: artifacts/v2.9.0.6-test-0d7d60d
+          path: candidates
+          sparse-checkout: |
+            downloads/v2.9.0.6-test-0d7d60d
+      - name: Download official v2.9.0.5 archives for comparison (best effort)
+        env:
+          GH_TOKEN: {{ github.token }}
+        run: |
+          mkdir -p previous
+          gh release download v2.9.0.5 --repo MattF42/PePe-core --pattern '*linux-gnu.tgz' --dir previous || echo "Official archive download unavailable"
+      - name: Report tarball members and uncompressed size distribution
+        run: |
+          python3 qa/linux-archive-size-audit.py candidates/downloads/v2.9.0.6-test-0d7d60d previous
+      - name: Report x86_64 Qt embedded AppImage size distribution
+        run: |
+          set -e
+          d="$RUNNER_TEMP/x86qt"
+          mkdir -p "$d"
+          tar -xzf candidates/downloads/v2.9.0.6-test-0d7d60d/*-test-x86_64-linux-gnu.tgz -C "$d"
+          cd "$d"
+          ls -lh PEPEPOW_qt
+          if ./PEPEPOW_qt --appimage-extract > /dev/null 2>&1; then
+            du -sh squashfs-root squashfs-root/usr/lib squashfs-root/usr/plugins 2>/dev/null || :
+            find squashfs-root -type f -printf '%s %p\n' | sort -nr | head -35 || :
+          else
+            echo "AppImage extraction unavailable on audit runner"
+          fi
