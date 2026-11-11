@@ -43,3 +43,23 @@ jobs:
           else
             echo "AppImage extraction unavailable on audit runner"
           fi
+
+      - name: Check old and new x86_64 Qt file type and gzip compressibility
+        run: |
+          set -e
+          old="$RUNNER_TEMP/old-x86qt"
+          fresh="$RUNNER_TEMP/new-x86qt"
+          mkdir -p "$old" "$fresh"
+          tar -xzf previous/*-release-x86_64-linux-gnu.tgz -C "$old"
+          tar -xzf candidates/downloads/v2.9.0.6-test-0d7d60d/*-test-x86_64-linux-gnu.tgz -C "$fresh"
+          for d in "$old" "$fresh"; do
+            echo "COMPARE $d"
+            file "$d/PEPEPOW_qt"
+            du -h "$d/PEPEPOW_qt"
+            printf 'raw bytes: '; stat -c %s "$d/PEPEPOW_qt"
+            printf 'standalone gzip size: '; gzip -c -9 "$d/PEPEPOW_qt" | wc -c
+            echo "NEEDED dependencies:"
+            readelf -d "$d/PEPEPOW_qt" | grep 'NEEDED' | head -30 || :
+            echo "Debug sections:"
+            readelf -S "$d/PEPEPOW_qt" | grep -E '[.]debug_|[.]symtab' | head -8 || :
+          done
