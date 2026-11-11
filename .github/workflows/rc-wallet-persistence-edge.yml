@@ -1,0 +1,42 @@
+name: RC wallet persistence fault-injection (no packaging)
+
+on:
+  push:
+    branches:
+      - fix/rc-wallet-persistence-A
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wallet-failure-regtest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - name: Export source and build existing PEPEPOW toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/source" "$RUNNER_TEMP/build"
+          git archive HEAD | tar -xf - -C "$RUNNER_TEMP/source"
+          docker build -t pepe-wallet-edge -f contrib/linux-portable/Dockerfile contrib/linux-portable
+      - name: Build daemon/CLI with ASan and test isolated regtest wallet
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network=none --user "$(id -u):$(id -g)" \
+            -v "$RUNNER_TEMP/source:/source" -v "$RUNNER_TEMP/build:/build" \
+            -e EDGE_BUILD=/build/src \
+            pepe-wallet-edge bash -euc '
+              python3 /source/qa/rc-edge/instrument.py /source
+              cd /source && ./autogen.sh
+              cd /build
+              /source/configure --with-gui=no --without-miniupnpc --enable-tests --disable-bench --disable-zmq \
+                CPPFLAGS=-I/opt/db4/include LDFLAGS="-L/opt/db4/lib -fsanitize=address" \
+                CFLAGS="-O1 -g1 -fsanitize=address -fno-omit-frame-pointer" \
+                CXXFLAGS="-O1 -g1 -fsanitize=address -fno-omit-frame-pointer -include deque -include condition_variable"
+              make -C src -j4 PEPEPOWd PEPEPOW-cli
+              python3 /source/qa/rc-edge/wallet_persistence.py
+            '
