@@ -10,7 +10,38 @@ permissions:
   contents: read
 
 jobs:
+  source-sanity:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python syntax and fail-closed source invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile qa/rc-edge/wallet_persistence.py qa/rc-edge/instrument.py
+          python3 - <<'PY'
+          from pathlib import Path
+          cpp = Path('src/wallet/wallet.cpp').read_text()
+          fn = cpp.split('bool CWallet::CommitTransaction(', 1)[1].split('bool CWallet::AddAccountingEntry(', 1)[0]
+          checks = [
+              'wtxNew.AcceptToMemoryPool(false)' in fn,
+              'if (!AddToWallet(wtxNew, false, pwalletdb))' in fn,
+              'txid=%s' in fn and 'Do not retry' in fn,
+              'return false; // Do not relay or claim success.' in fn,
+              fn.index('wtxNew.AcceptToMemoryPool(false)') <
+                fn.index('if (!AddToWallet(wtxNew, false, pwalletdb))') <
+                fn.index('wtxNew.RelayWalletTransaction('),
+              '&strError' in Path('src/wallet/rpcwallet.cpp').read_text(),
+              '&commitError' in Path('src/qt/walletmodel.cpp').read_text(),
+          ]
+          assert all(checks), 'Wallet commit safety invariant is missing'
+          print('PASS: Python syntax and wallet failure-path source invariants; runtime regtest NOT run')
+          PY
+
   wallet-failure-regtest:
+    # Avoid automatically starting expensive packaging/builds on every test
+    # commit. Trigger manually once runner dependency networking is available.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 55
     steps:
