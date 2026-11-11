@@ -66,3 +66,5 @@ After the recovery and Qt changes, affected targets were rebuilt and the recover
 ## Files and release status
 
 Proposed fixes: `src/masternodeman.cpp`, `src/qt/coincontroldialog.cpp`, `src/qt/coincontroldialog.h`, `src/qt/dash.cpp`. Test-only code and evidence: `qa/rc-edge/`; report: this document. The PR remains draft and contains both tests and proposed fixes. **Do not merge or proceed to official release while A remains unresolved and the existing regression failure has not been reviewed.** No master/staging merge, tag, release, consensus, protocol or wallet-format change was made.
+
+Per owner request, testing was stopped after the results above. Automatically started x86_64 and ARM64 packaging workflows for this PR were requested to be cancelled; their results must not be treated as successful verification of the final PR. No final release build was made.
