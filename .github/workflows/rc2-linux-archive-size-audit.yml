@@ -22,7 +22,7 @@ jobs:
             downloads/v2.9.0.6-test-0d7d60d
       - name: Download official v2.9.0.5 archives for comparison (best effort)
         env:
-          GH_TOKEN: {{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p previous
           gh release download v2.9.0.5 --repo MattF42/PePe-core --pattern '*linux-gnu.tgz' --dir previous || echo "Official archive download unavailable"
