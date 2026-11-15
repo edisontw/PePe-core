@@ -235,14 +235,14 @@ The initial address-only Coinbase scanner returned 202 matched outputs across
 than one matching output, and the amount frequencies included exactly two
 3,087.5-PEPEW outputs plus 1,662.5-PEPEW ordinary amounts.
 
-Source inspection shows \`CMasternodePayments::FillBlockPayee()\` writes
-the *miner* reward to \`txNew.vout[0]\` and adds the Masternode payment in
+Source inspection shows `CMasternodePayments::FillBlockPayee()` writes
+the *miner* reward to `txNew.vout[0]` and adds the Masternode payment in
 a subsequent Coinbase output. Therefore a miner paying to a currently known
 MN address can contaminate address-only reward counts. The exact
 3,087.5-PEPEW anomalies are **suspected miner outputs**, but the original
 report contains no output indices to confirm that inference.
 
-The audit is now patched to explicitly exclude \`vout[0]\` and record
+The audit is now patched to explicitly exclude `vout[0]` and record
 any excluded miner-output address match with height, txid, and amount.
 It also reports non-standard amounts on subsequent matched outputs,
 and keeps ambiguous mixed-tier payees excluded.
@@ -252,8 +252,8 @@ and keeps ambiguous mixed-tier payees excluded.
     curl -fsSL https://raw.githubusercontent.com/edisontw/PePe-core/fix/tier-reward-scheduler-research/contrib/devtools/tier_reward_coinbase_audit.py -o /tmp/tier_reward_coinbase_audit.py
     python3 /tmp/tier_reward_coinbase_audit.py --snapshot /tmp/pepepow-tier-20261115T135418Z.json --cli /home/ubuntu/PEPEPOW-cli --blocks 200
 
-Check \`excluded_miner_vout0_address_matches\`, the example txids,
-\`multiple_match_blocks\`, and the output count by tier. Ideally each
+Check `excluded_miner_vout0_address_matches`, the example txids,
+`multiple_match_blocks`, and the output count by tier. Ideally each
 ordinary block has one non-miner MN reward output; verify exceptions
 against real transactions before claiming this always holds.
 
@@ -274,40 +274,40 @@ matches were **miners**, not MN rewards:
 
 PEPEPOW has **two different concepts** called "superblock":
 1. Foztor's built-in fixed-height subsidy bonus in
-   \`src/validation.cpp:GetBlockSubsidy\`. For blocks following
-   \`FOUNDATION_HEIGHT\`, with actual block height \`h\`:
-   - \`h % 100 == 88\`: **2x subsidy and foundation**, 2x MN pay
-   - \`h % 1000 == 999\`: **5x subsidy and foundation**, 5x MN pay
-   (The implementation tests \`nPrevHeight = h-1\` for 87 and 998.)
+   `src/validation.cpp:GetBlockSubsidy`. For blocks following
+   `FOUNDATION_HEIGHT`, with actual block height `h`:
+   - `h % 100 == 88`: **2x subsidy and foundation**, 2x MN pay
+   - `h % 1000 == 999`: **5x subsidy and foundation**, 5x MN pay
+   (The implementation tests `nPrevHeight = h-1` for 87 and 998.)
 2. The separate Dash/governance-triggered superblock engine in
-   \`src/governance-classes.cpp\`; a possible mainnet height must be
-   \`h >= 120000\` and \`h % 16616 == 0\`, but a valid
+   `src/governance-classes.cpp`; a possible mainnet height must be
+   `h >= 120000` and `h % 16616 == 0`, but a valid
    *funded trigger* is also needed. A cycle boundary alone does not
    prove such a payout.
 
 For this post-XEL-bonus subsidy regime, standard subsidy is 5,000,
-Foundation 250, MN share \`(5000-250)*35%=1662.5\`,
+Foundation 250, MN share `(5000-250)*35%=1662.5`,
 miner share 3087.5 PEPEW. Scheduled double blocks have subsidy
 10,000, Foundation 500, MN share 3325 and miner share 6175.
 
 The two MN payments of **3,325 PEPEW** in this live sample were:
 - height **5,236,588**, vout[1], tier T4, txid
-  \`fcd82b81bb43e1d72acfdb5162aa3bf56f0ab65b3726428a4aba47cafc018785\`
+  `fcd82b81bb43e1d72acfdb5162aa3bf56f0ab65b3726428a4aba47cafc018785`
 - height **5,236,688**, vout[1], tier T4, txid
-  \`cbed1315eb3515d7df9f8077c3b2fa56c3b767eed25843328daf4c2cb43c80fb\`
+  `cbed1315eb3515d7df9f8077c3b2fa56c3b767eed25843328daf4c2cb43c80fb`
 
-Both heights are \`% 100 == 88\` and neither is a possible
+Both heights are `% 100 == 88` and neither is a possible
 governance-cycle boundary. Thus these amounts **match the expected
 fixed-height double reward**; they are *not* anomalies or unexpected
 repeat MN payments. None of these 200 heights was a governance
 superblock-cycle boundary.
 
 Auditing now records:
-- \`scheduled_subsidy_multiplier_block_counts\` (1x/2x/5x)
-- \`scheduled_subsidy_multiplier_matched_payouts\`
-- \`normal_reward_unit_equivalent_by_tier\`, excluding miner vout[0]
-- \`governance_superblock_cycle_candidate_heights\` only (not triggers)
-- \`scheduled_reward_amount_mismatch_examples\`
+- `scheduled_subsidy_multiplier_block_counts` (1x/2x/5x)
+- `scheduled_subsidy_multiplier_matched_payouts`
+- `normal_reward_unit_equivalent_by_tier`, excluding miner vout[0]
+- `governance_superblock_cycle_candidate_heights` only (not triggers)
+- `scheduled_reward_amount_mismatch_examples`
 
 The T4 observed **frequency** is 157/33 divided by T1 15/12
 = **3.806x**. But the two valid double payments make T4 **amount**
@@ -379,10 +379,10 @@ v2.9.0.6 production payment algorithm unchanged while building evidence.
 
 ## Incremental longitudinal tier observations (non-consensus)
 
-The v2.9.0.6 RPC \`masternode count qualify\` invokes
-\`GetNextMasternodeInQueueForPayment(true, nCount, ...)\`. Its returned
-\`nCount\` is **the number remaining after payment eligibility filters**:
-\`IsValidForPayment\`, protocol, future scheduled winners,
+The v2.9.0.6 RPC `masternode count qualify` invokes
+`GetNextMasternodeInQueueForPayment(true, nCount, ...)`. Its returned
+`nCount` is **the number remaining after payment eligibility filters**:
+`IsValidForPayment`, protocol, future scheduled winners,
 new-node sigTime, last ping age, UTXO confirmation count, and fallback
 when too few qualify. This RPC **does not return Qualify by tier**.
 The 2026-11-15 snapshot had a locally observable 51 / RPC Qualify 43,
@@ -417,9 +417,9 @@ A manual baseline run creates a current snapshot and initial state
 
 Repeat after several hours. The second run audits only newly generated
 blocks. When the new span exceeds 300 blocks, the tool marks the entire
-span as \`gap_unscanned\` and advances its baseline explicitly rather
+span as `gap_unscanned` and advances its baseline explicitly rather
 than misleadingly reporting full block coverage. If an RPC fails, the
-previous \`state.json\` pointer remains at the previous height so a
+previous `state.json` pointer remains at the previous height so a
 retry can attempt the same interval. It also checks that the previous
 block hash is still on the same chain before scanning; if a reorg is
 detected, it stops and preserves the last accepted state. An OS flock
@@ -440,13 +440,13 @@ Then add one line (replace paths if installed elsewhere):
 ### Evidence and reports
 
 Snapshots, per-interval Coinbase reports, and a pointer state file
-are retained locally in \`~/pepepow-tier-observations\`:
+are retained locally in `~/pepepow-tier-observations`:
 
     python3 "$HOME/pepepow-tier-monitor/tier_reward_monitor.py" \
       --state-dir "$HOME/pepepow-tier-observations" --report
 
 Reported metrics are:
-- Actual outputs per Tier in scanned intervals (miner \`vout[0]\` excluded).
+- Actual outputs per Tier in scanned intervals (miner `vout[0]` excluded).
 - Total scanned blocks, explicitly unscanned gap blocks, and changing
   ENABLED tier populations at interval endpoints.
 - An **approximate endpoint-averaged ENABLED exposure**, not exact
@@ -455,7 +455,7 @@ Reported metrics are:
 - Correct fixed-height 1x/2x/5x payouts, as in the Coinbase audit.
 
 **Limitations:** Snapshot intervals do not recreate historical
-\`Qualify\` per tier or actual voter/peer consensus state. The script
+`Qualify` per tier or actual voter/peer consensus state. The script
 uses the payee map from the later snapshot; a Masternode that leaves
 the map may be unmatched in that window. Changes between snapshots
 are approximated by endpoint average. Coinbase sums and status
@@ -463,7 +463,7 @@ exposure alone MUST NOT justify an immediate consensus change.
 
 Safety: no wallet password, private keys, rpcpassword, IP or payee
 address is written to the JSON files. No Core configuration changes,
-no daemon restart, no change to \`MattF42/master\`, and no release.
+no daemon restart, no change to `MattF42/master`, and no release.
 
 Offline tests:
 
