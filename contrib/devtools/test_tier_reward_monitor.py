@@ -118,6 +118,33 @@ class MonitorTests(unittest.TestCase):
         self.assertEqual(json.loads((self.root / "state.json").read_text())
                          ["last_height"], 1000)
 
+    def test_hash_reorg_same_height_prevents_double_count(self):
+        hash_provider = lambda height: "hash-" + str(height)
+        first = monitor.run_once(
+            self.root,
+            snapshot_provider=lambda: fake_snapshot(1000),
+            chain_hash_provider=hash_provider,
+        )
+        self.assertEqual(first["block_hash"], "hash-1000")
+        with self.assertRaisesRegex(monitor.MonitorError, "reorganization"):
+            monitor.run_once(
+                self.root,
+                snapshot_provider=lambda: fake_snapshot(1020),
+                chain_hash_provider=lambda height: (
+                    "reorg-" + str(height) if height == 1000
+                    else "hash-" + str(height)),
+                audit_provider=fake_audit,
+            )
+        self.assertEqual(json.loads((self.root / "state.json").read_text())
+                         ["last_height"], 1000)
+        self.assertEqual(
+            monitor.run_once(
+                self.root,
+                snapshot_provider=lambda: fake_snapshot(1020),
+                chain_hash_provider=hash_provider,
+                audit_provider=fake_audit,
+            )["type"], "scanned")
+
     def test_tip_moved_during_snapshot_rejected(self):
         self.run_at(1000)
         altered = fake_snapshot(1040)
