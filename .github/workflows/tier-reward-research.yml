@@ -1,0 +1,35 @@
+name: Tier reward research (no mainnet activation)
+
+on:
+  push:
+    branches:
+      - fix/tier-reward-scheduler-research
+    paths:
+      - contrib/devtools/tier_reward_*
+      - src/tier_reward_priority_research.h
+      - doc/tier-reward-scheduler-research-2026-11-15.md
+      - .github/workflows/tier-reward-research.yml
+  pull_request:
+    paths:
+      - contrib/devtools/tier_reward_*
+      - src/tier_reward_priority_research.h
+      - doc/tier-reward-scheduler-research-2026-11-15.md
+      - .github/workflows/tier-reward-research.yml
+
+permissions:
+  contents: read
+
+jobs:
+  research-smoke:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Model regression
+        run: python3 contrib/devtools/tier_reward_scheduler_model.py --self-test
+      - name: C++ priority smoke build and test
+        shell: bash
+        run: |
+          g++ -std=c++11 -Wall -Wextra -Werror -pedantic \
+            contrib/devtools/tier_reward_priority_research_smoke.cpp -o /tmp/tier_reward_smoke
+          /tmp/tier_reward_smoke
