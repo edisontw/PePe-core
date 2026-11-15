@@ -16,6 +16,38 @@ from decimal import Decimal
 from pathlib import Path
 
 TIERS = ("T1", "T2", "T3", "T4")
+FOUNDATION_HEIGHT = 129600
+GOVERNANCE_START_HEIGHT = 120000
+GOVERNANCE_CYCLE = 16616
+POST_XEL_BONUS_END_PREVHEIGHT = 1930000 + 25 * 129600  # 5,170,000
+BASE_MN_PAYMENT_POST_BONUS = Decimal("1662.5")  # (5000 - 250) * 35%
+
+
+def scheduled_bonus_multiplier(height):
+    """Foztor's fixed-height subsidy bonus, NOT Dash governance.
+
+    GetBlockSubsidy receives nPrevHeight=height-1; mainnet v2.9.0.6.
+    """
+    if height <= FOUNDATION_HEIGHT:
+        return 1
+    if height % 1000 == 999:
+        return 5
+    if height % 100 == 88:
+        return 2
+    return 1
+
+
+def potential_governance_superblock_height(height):
+    """Cycle boundary can host governance trigger, but is not proof of one."""
+    return height >= GOVERNANCE_START_HEIGHT and height % GOVERNANCE_CYCLE == 0
+
+
+def expected_mn_payment_post_bonus(height):
+    """Known post-XEL-bonus mainnet subsidy regime (fee-free reference)."""
+    if height - 1 < POST_XEL_BONUS_END_PREVHEIGHT:
+        return None
+    return BASE_MN_PAYMENT_POST_BONUS * scheduled_bonus_multiplier(height)
+
 
 
 class AuditError(Exception):
@@ -126,7 +158,16 @@ def audit(snapshot, payees, blocks, rpc_func, progress=None):
     excluded_miner_amounts = collections.Counter()
     excluded_miner_examples = []
     atypical_non_miner_outputs = []
+    fixed_height_bonus_scanned = collections.Counter()
+    fixed_height_bonus_payouts = collections.Counter()
+    governance_candidate_heights = []
+    reward_amount_mismatches = []
+    normal_unit_equivalent_by_tier = {t: Decimal(0) for t in TIERS}
     for i, height in enumerate(range(start, end + 1), 1):
+        bonus_multiplier = scheduled_bonus_multiplier(height)
+        fixed_height_bonus_scanned[str(bonus_multiplier)] += 1
+        if potential_governance_superblock_height(height):
+            governance_candidate_heights.append(height)
         h = rpc_func("getblockhash", height)
         block = rpc_func("getblock", h)
         txids = block.get("tx") if isinstance(block, dict) else None
@@ -169,12 +210,25 @@ def audit(snapshot, payees, blocks, rpc_func, progress=None):
             if len(matches) > 1:
                 multiple_match_blocks += 1
         for tier, amount, outpoint_count, enabled, output_index in matches:
-            if abs(amount - Decimal("1662.5")) > Decimal("0.1"):
+            fixed_height_bonus_payouts[str(bonus_multiplier)] += 1
+            expected = expected_mn_payment_post_bonus(height)
+            if expected is not None:
+                normal_unit_equivalent_by_tier[tier] += amount / BASE_MN_PAYMENT_POST_BONUS
+                if abs(amount - expected) > Decimal("0.1"):
+                    if len(reward_amount_mismatches) < 30:
+                        reward_amount_mismatches.append({
+                            "height": height, "txid": txid, "tier": tier,
+                            "observed": str(amount), "expected_fee_free": str(expected),
+                            "bonus_multiplier": bonus_multiplier,
+                        })
+            if amount != BASE_MN_PAYMENT_POST_BONUS:
                 if len(atypical_non_miner_outputs) < 30:
                     atypical_non_miner_outputs.append({
                         "height": height, "txid": txid,
-                        "vout_index": output_index,
-                        "tier": tier, "value": str(amount),
+                        "vout_index": output_index, "tier": tier,
+                        "value": str(amount), "bonus_multiplier": bonus_multiplier,
+                        "expected_fee_free": str(expected) if expected is not None else None,
+                        "scheduled_bonus": (bonus_multiplier != 1),
                     })
             total[tier] += 1
             sums[tier] += amount
@@ -206,6 +260,15 @@ def audit(snapshot, payees, blocks, rpc_func, progress=None):
         "approx_per_current_enabled_ratio_to_T1": ratios,
         "matched_output_amount_by_tier_PEPEW": {t: str(sums[t]) for t in TIERS},
         "amount_frequencies_top": sample_amounts.most_common(8),
+        "scheduled_subsidy_multiplier_block_counts": dict(fixed_height_bonus_scanned),
+        "scheduled_subsidy_multiplier_matched_payouts": dict(fixed_height_bonus_payouts),
+        "governance_superblock_cycle_candidate_heights": governance_candidate_heights,
+        "governance_trigger_status_checked": False,
+        "scheduled_reward_amount_mismatch_examples": reward_amount_mismatches,
+        "normal_reward_unit_equivalent_by_tier": {
+            t: str(normal_unit_equivalent_by_tier[t]) for t in TIERS
+        },
+        "note_normal_reward_units": "Amount / 1662.5 for heights beyond PEPEPOW XEL bonus; use the amount totals for actual PEPEW revenue",
         "excluded_miner_vout0_address_matches": excluded_miner_output_matches,
         "excluded_miner_vout0_amounts": dict(excluded_miner_amounts),
         "excluded_miner_vout0_examples": excluded_miner_examples,
@@ -221,6 +284,9 @@ def audit(snapshot, payees, blocks, rpc_func, progress=None):
             "Shared payee addresses cannot attribute payout frequency per node",
             "Miner vout[0] is excluded by Core construction; other payment or "
             "foundation outputs to a present-day MN payee could still bias totals",
+            "Fixed-height 2x/5x subsidy bonuses are distinct from triggered governance superblocks",
+            "Governance cycle boundaries are only possible triggers; actual governance payout not verified",
+            "Fee and historical-subsidy regimes can alter expected reward amounts",
             "No mainnet reward-election inference without eligibility and voting replay",
         ],
     }
