@@ -59,13 +59,18 @@ def classify_payees(snapshot, payees):
 
 
 def inspect_coinbase(tx, recipients):
-    """Extract tagged outputs; return (matches, ambiguous, encountered)."""
+    """Extract non-miner outputs, returning matches and classification ambiguities."""
     if not isinstance(tx, dict) or not isinstance(tx.get("vin"), list) or not tx["vin"]:
         raise AuditError("Malformed transaction response")
     if not isinstance(tx["vin"][0], dict) or "coinbase" not in tx["vin"][0]:
         raise AuditError("Expected coinbase transaction in block tx[0]")
     matches, ambiguous = [], []
-    for vout in tx.get("vout", []):
+    for output_index, vout in enumerate(tx.get("vout", [])):
+        # Core FillBlockPayee writes the mining reward into vout[0].
+        # A miner can mine to a known masternode payee address, so an
+        # address match alone must NEVER count the miner output as MN reward.
+        if output_index == 0:
+            continue
         if not isinstance(vout, dict):
             continue
         spk = vout.get("scriptPubKey") or {}
@@ -93,7 +98,7 @@ def inspect_coinbase(tx, recipients):
         if amount <= 0:
             continue
         matches.append((next(iter(info["tiers"])), amount, len(info["outpoints"]),
-                        bool(info["enabled_outpoints"])))
+                        bool(info["enabled_outpoints"]), output_index))
     return matches, ambiguous
 
 
@@ -117,6 +122,10 @@ def audit(snapshot, payees, blocks, rpc_func, progress=None):
     ambiguous_outputs = collections.Counter()
     matched_blocks, no_match_blocks, multiple_match_blocks = 0, 0, 0
     sample_amounts = collections.Counter()
+    excluded_miner_output_matches = 0
+    excluded_miner_amounts = collections.Counter()
+    excluded_miner_examples = []
+    atypical_non_miner_outputs = []
     for i, height in enumerate(range(start, end + 1), 1):
         h = rpc_func("getblockhash", height)
         block = rpc_func("getblock", h)
@@ -130,6 +139,27 @@ def audit(snapshot, payees, blocks, rpc_func, progress=None):
             raise AuditError("Cannot fetch coinbase tx at height {}: {}. "
                              "Check txindex=1 and allow it to finish indexing; "
                              "do not use partial sums.".format(height, exc)) from exc
+        # Record, but NEVER include, a miner payout to an address in the
+        # current masternode payee set. The original audit did count these.
+        outputs = tx.get("vout", []) if isinstance(tx, dict) else []
+        if outputs and isinstance(outputs[0], dict):
+            miner_output = outputs[0]
+            miner_spk = miner_output.get("scriptPubKey") or {}
+            if isinstance(miner_spk, dict):
+                miner_addresses = miner_spk.get("addresses") or []
+                if isinstance(miner_addresses, str):
+                    miner_addresses = [miner_addresses]
+                if isinstance(miner_spk.get("address"), str):
+                    miner_addresses = list(miner_addresses) + [miner_spk["address"]]
+                if set(miner_addresses).intersection(recipients):
+                    excluded_miner_output_matches += 1
+                    amount = str(miner_output.get("value"))
+                    excluded_miner_amounts[amount] += 1
+                    if len(excluded_miner_examples) < 20:
+                        excluded_miner_examples.append({
+                            "height": height, "txid": txid, "value": amount,
+                            "vout_index": 0,
+                        })
         matches, ambiguous = inspect_coinbase(tx, recipients)
         ambiguous_outputs.update(ambiguous)
         if not matches:
@@ -138,7 +168,14 @@ def audit(snapshot, payees, blocks, rpc_func, progress=None):
             matched_blocks += 1
             if len(matches) > 1:
                 multiple_match_blocks += 1
-        for tier, amount, outpoint_count, enabled in matches:
+        for tier, amount, outpoint_count, enabled, output_index in matches:
+            if abs(amount - Decimal("1662.5")) > Decimal("0.1"):
+                if len(atypical_non_miner_outputs) < 30:
+                    atypical_non_miner_outputs.append({
+                        "height": height, "txid": txid,
+                        "vout_index": output_index,
+                        "tier": tier, "value": str(amount),
+                    })
             total[tier] += 1
             sums[tier] += amount
             sample_amounts[str(amount)] += 1
@@ -169,17 +206,22 @@ def audit(snapshot, payees, blocks, rpc_func, progress=None):
         "approx_per_current_enabled_ratio_to_T1": ratios,
         "matched_output_amount_by_tier_PEPEW": {t: str(sums[t]) for t in TIERS},
         "amount_frequencies_top": sample_amounts.most_common(8),
+        "excluded_miner_vout0_address_matches": excluded_miner_output_matches,
+        "excluded_miner_vout0_amounts": dict(excluded_miner_amounts),
+        "excluded_miner_vout0_examples": excluded_miner_examples,
+        "atypical_non_miner_output_examples": atypical_non_miner_outputs,
         "shared_address_outputs_single_tier": single_tier_shared_payee,
         "payees_not_currently_enabled_output_count": classified_disabled,
         "ambiguous_outputs_excluded": dict(ambiguous_outputs),
         "current_payee_addresses_matched": len(recipients),
         "warnings": [
-            "Coinbase outputs to present-day listed payee addresses; does not prove "
-            "historical tier, qualification or MN-reward type",
+            "Coinbase non-miner outputs to present-day listed payee addresses; "
+            "does not prove historical tier or qualification",
             "The per-current-ENABLED normalization is indicative only: status/tier/qualification can change over the scanned historical interval",
             "Shared payee addresses cannot attribute payout frequency per node",
-            "Unknown historical payees and miner/foundation address coincidences "
-            "may bias totals; do not claim consensus causality",
+            "Miner vout[0] is excluded by Core construction; other payment or "
+            "foundation outputs to a present-day MN payee could still bias totals",
+            "No mainnet reward-election inference without eligibility and voting replay",
         ],
     }
 
