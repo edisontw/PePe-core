@@ -125,23 +125,23 @@ ratios alone.
 
 ## Live read-only Core RPC snapshot (2026-11-15)
 
-The v2.9.0.6 RPC \`masternodelist tier\` returns the T1/T2/T3/T4
+The v2.9.0.6 RPC `masternodelist tier` returns the T1/T2/T3/T4
 collateral classification by checking the live UTXO. The audit collects
 this alongside status, protocol, active seconds, last-paid block, spork
-states and \`masternode count all/qualify\`. It does **not** require
+states and `masternode count all/qualify`. It does **not** require
 wallet unlock, private keys, IP addresses, payee addresses, or a new
 Core binary. Use the installed v2.9.0.6 node CLI.
 
-Run on an existing Ubuntu Core host:
+Run on an existing Ubuntu Core host. Only a one-time read-only RPC capture is needed; avoid high-frequency polling on a 1-vCPU host:
 
-\`\`\`bash
-git clone --branch fix/tier-reward-scheduler-research \
+```bash
+git clone --depth 1 --branch fix/tier-reward-scheduler-research \
   https://github.com/edisontw/PePe-core.git /tmp/pepepow-tier-research
 
 python3 /tmp/pepepow-tier-research/contrib/devtools/tier_reward_snapshot.py \
   collect --cli /home/ubuntu/PEPEPOW-cli \
   --output "/tmp/pepepow-tier-$(date -u +%Y%m%dT%H%M%SZ).json"
-\`\`\`
+```
 
 The script prints **Total / Enabled / Qualify**, the current
 collateral-tier distribution for *all* and *ENABLED* nodes, and
@@ -149,10 +149,10 @@ the *approximate* tiers inside the legacy 10%-of-total shortlist.
 It writes a local timestamped JSON snapshot for later independent
 re-analysis:
 
-\`\`\`bash
+```bash
 python3 contrib/devtools/tier_reward_snapshot.py analyze \
   /tmp/pepepow-tier-YYYYMMDDTHHMMSSZ.json --json
-\`\`\`
+```
 
 The JSON file contains public outpoints, tier, status, protocol,
 active seconds and last-paid height. There are no passwords, RPC
@@ -163,15 +163,15 @@ existing snapshots.
 
 Run deterministic tests without a PEPEPOW node:
 
-\`\`\`bash
+```bash
 python3 contrib/devtools/test_tier_reward_snapshot.py -v
-\`\`\`
+```
 
 **Limitations**: Collected RPCs are sequential, not an atomic view of
 the chain. Height may advance during collection. The script cannot
-know \`IsScheduled\`'s future votes, UTXO confirmation count, actual
-\`CalculateScore\`, payment votes, or all sigTime fallback decisions.
-It uses \`masternode count qualify\` as the authoritative current
+know `IsScheduled`'s future votes, UTXO confirmation count, actual
+`CalculateScore`, payment votes, or all sigTime fallback decisions.
+It uses `masternode count qualify` as the authoritative current
 eligible count while presenting its own maturity/tier subset as an
 **estimate**, not as identical to the Core candidate set.
 
