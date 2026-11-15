@@ -57,7 +57,8 @@ def read_json(path):
 
 
 def run_once(state_dir, cli="/home/ubuntu/PEPEPOW-cli",
-             max_blocks=300, snapshot_provider=None, audit_provider=None):
+             max_blocks=300, snapshot_provider=None, audit_provider=None,
+             chain_hash_provider=None):
     """Return one run summary; fake providers support tests without an RPC host.
 
     Gaps > max_blocks are explicitly recorded, NOT silently omitted as if
@@ -88,6 +89,16 @@ def run_once(state_dir, cli="/home/ubuntu/PEPEPOW-cli",
         if new_height != int(snap["height_start"]):
             # An inconsistent snapshot cannot define an exact interval end.
             raise MonitorError("Block tip changed during snapshot; retry later")
+        if chain_hash_provider is None and snapshot_provider is None:
+            chain_hash_provider = lambda h: snapshot_rpc.rpc_cli(
+                cli, "getblockhash", str(h))
+        if old_state is not None and old_state.get("last_block_hash") and chain_hash_provider:
+            current_old_hash = str(chain_hash_provider(int(old_state["last_height"])))
+            if current_old_hash != old_state["last_block_hash"]:
+                raise MonitorError("Chain reorganization detected at prior height; "
+                                   "review before continuing; state preserved")
+        new_block_hash = (str(chain_hash_provider(new_height))
+                          if chain_hash_provider else None)
         if old_state is not None and new_height < int(old_state["last_height"]):
             raise MonitorError("Tip fell below previous snapshot (reorg or lag): "
                                "investigate; prior state preserved")
@@ -106,6 +117,7 @@ def run_once(state_dir, cli="/home/ubuntu/PEPEPOW-cli",
             "qualify": snap["count_qualify_separate"],
             "enabled_tier_counts": snapshot_counts,
             "snapshot_file": snapshot_relative,
+            "block_hash": new_block_hash,
         }
         interval_relative = None
         if old_state is not None and new_height > int(old_state["last_height"]):
@@ -165,6 +177,7 @@ def run_once(state_dir, cli="/home/ubuntu/PEPEPOW-cli",
         atomic_json(state_path, {
             "schema_version": SCHEMA,
             "last_height": new_height,
+            "last_block_hash": new_block_hash,
             "snapshot_file": snapshot_relative,
             "latest_interval_file": interval_relative,
             "updated_at_utc": snap["observed_at_utc"],
