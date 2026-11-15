@@ -318,3 +318,60 @@ current ENABLED tier counts are not a historical eligibility record.
 
 This is research-only reporting: no scheduling rule, block reward,
 governance payment, consensus, or active Core code was changed.
+
+
+## 2026-11-15: 1,000-block corrected payout audit
+
+Owner-supplied read-only RPC audit, using snapshot height 5,236,763
+and present-day ENABLED tier counts T1=12/T2=1/T3=6/T4=33.
+
+Block range 5,235,764–5,236,763:
+- 1,000 blocks scanned, 1,000 matching non-miner MN-payee outputs
+- Zero blocks unmatched; zero multiple-match blocks
+- Frequency by current tier: T1=95, T2=26, T3=109, T4=770
+- Value (PEPEW): T1=157937.50000234; T2=43225.00000468;
+  T3=181212.50004423; T4=1303400.00075463
+- Normalized **per currently ENABLED node** payout-count ratios:
+  T1=1, T2=3.284, T3=2.295, T4=2.947
+- Fixed subsidy schedule: 989 ordinary, 10 double, 1 quintuple.
+  All eleven bonus payouts went to T4 (normal reward units: 784
+  for T4 versus 770 distinct rewards). Zero expected-value
+  mismatches and no governance-cycle candidate height in interval.
+- 13 miner-vout[0] address coincidences correctly excluded.
+- 25 payout outputs went to MN addresses not currently ENABLED.
+- No shared-payee outputs, no ambiguous cross-tier recipients.
+
+This larger sample **includes the previously scanned last 200 blocks**;
+do NOT add the 1,000- and 200-block counts as separate samples.
+To compare periods, subtract 200-block results from the 1,000 total:
+
+| Tier | Earlier 800 blocks | Last 200 blocks | Entire 1,000 |
+| --- | ---: | ---: | ---: |
+| T1 | 80 | 15 | 95 |
+| T2 | 23 | 3 | 26 |
+| T3 | 84 | 25 | 109 |
+| T4 | 613 | 157 | 770 |
+
+Normalized to T1 using one *current* ENABLED snapshot:
+- Earlier 800 blocks: 1 : 3.450 : 2.100 : 2.786
+- Latest 200 blocks: 1 : 2.400 : 3.333 : 3.806
+- Full 1,000 blocks: 1 : 3.284 : 2.295 : 2.947
+
+The differences show short-window variation. More importantly, the
+25 now-disabled payee matches show that today's status is not
+a historical eligibility ledger. The current 52 ENABLED counts should
+not be treated as the exact denominators for each past block.
+One current T2 node also means T2 statistical power is very limited.
+
+**Interpretation:** fixed-height PEPEPOW reward arithmetic is consistent
+with the schedule, and the Core election frequency observed on-chain
+does not match simple collateral ratios after normalization by the
+current ENABLED counts. This does **not** conclusively establish a
+consensus bug or validate a replacement algorithm. Need longitudinal
+tier counts/qualification snapshots and actual payment vote/replay
+validation before changing mainnet selection.
+
+Next safe step: take periodic *read-only* tier/status snapshots and
+collect per-window/per-node payout counts from real Coinbase outputs,
+annotating changes in qualifying tier population. Keep the existing
+v2.9.0.6 production payment algorithm unchanged while building evidence.
