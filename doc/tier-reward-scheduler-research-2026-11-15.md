@@ -261,3 +261,60 @@ Even a corrected 200-block sample cannot establish sustainable ratio
 because the relative population of currently ENABLED/qualified nodes
 can differ over time. A follow-up 1000–2000 block window can increase
 sample size, but does not recover historical eligibility.
+
+
+## 2026-11-15: fixed-height PEPEPOW "superblocks" confirmed
+
+The corrected audit rerun over blocks **5,236,564–5,236,763**
+included 200 classified non-miner Coinbase outputs, one per block.
+T1=15, T2=3, T3=25, T4=157. The earlier two extra T4 address
+matches were **miners**, not MN rewards:
+- height 5,236,630: 3,087.5 PEPEW, vout[0]
+- height 5,236,672: 3,087.5 PEPEW, vout[0]
+
+PEPEPOW has **two different concepts** called "superblock":
+1. Foztor's built-in fixed-height subsidy bonus in
+   \`src/validation.cpp:GetBlockSubsidy\`. For blocks following
+   \`FOUNDATION_HEIGHT\`, with actual block height \`h\`:
+   - \`h % 100 == 88\`: **2x subsidy and foundation**, 2x MN pay
+   - \`h % 1000 == 999\`: **5x subsidy and foundation**, 5x MN pay
+   (The implementation tests \`nPrevHeight = h-1\` for 87 and 998.)
+2. The separate Dash/governance-triggered superblock engine in
+   \`src/governance-classes.cpp\`; a possible mainnet height must be
+   \`h >= 120000\` and \`h % 16616 == 0\`, but a valid
+   *funded trigger* is also needed. A cycle boundary alone does not
+   prove such a payout.
+
+For this post-XEL-bonus subsidy regime, standard subsidy is 5,000,
+Foundation 250, MN share \`(5000-250)*35%=1662.5\`,
+miner share 3087.5 PEPEW. Scheduled double blocks have subsidy
+10,000, Foundation 500, MN share 3325 and miner share 6175.
+
+The two MN payments of **3,325 PEPEW** in this live sample were:
+- height **5,236,588**, vout[1], tier T4, txid
+  \`fcd82b81bb43e1d72acfdb5162aa3bf56f0ab65b3726428a4aba47cafc018785\`
+- height **5,236,688**, vout[1], tier T4, txid
+  \`cbed1315eb3515d7df9f8077c3b2fa56c3b767eed25843328daf4c2cb43c80fb\`
+
+Both heights are \`% 100 == 88\` and neither is a possible
+governance-cycle boundary. Thus these amounts **match the expected
+fixed-height double reward**; they are *not* anomalies or unexpected
+repeat MN payments. None of these 200 heights was a governance
+superblock-cycle boundary.
+
+Auditing now records:
+- \`scheduled_subsidy_multiplier_block_counts\` (1x/2x/5x)
+- \`scheduled_subsidy_multiplier_matched_payouts\`
+- \`normal_reward_unit_equivalent_by_tier\`, excluding miner vout[0]
+- \`governance_superblock_cycle_candidate_heights\` only (not triggers)
+- \`scheduled_reward_amount_mismatch_examples\`
+
+The T4 observed **frequency** is 157/33 divided by T1 15/12
+= **3.806x**. But the two valid double payments make T4 **amount**
+equal approximately 159 ordinary MN rewards, so its payment-amount
+ratio per currently ENABLED node vs T1 is **3.855x**.
+**These are distinct metrics.** Both remain provisional because the
+current ENABLED tier counts are not a historical eligibility record.
+
+This is research-only reporting: no scheduling rule, block reward,
+governance payment, consensus, or active Core code was changed.
