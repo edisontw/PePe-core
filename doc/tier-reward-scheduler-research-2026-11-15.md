@@ -82,3 +82,42 @@ It has no effect on existing mainnet payments.
 
 This research branch does not edit active reward selection, modify
 master, create a release, or authorize any mainnet activation.
+
+## Historical foztor tier fix: v2.7.1.6 to v2.7.1.7
+
+Official releases: https://github.com/MattF42/PePe-core/releases/tag/v2.7.1.7
+Exact source comparison: https://github.com/MattF42/PePe-core/compare/v2.7.1.6...v2.7.1.7
+
+The 2025-06-02 v2.7.1.7 release explicitly fixed **overpayment of
+100M collateral masternodes**. The relevant source diff in
+`src/masternodeman.cpp` changed the 100M queue key from
+`GetLastPaidBlock()` to `GetLastPaidBlock() + nMnEnabledCount`.
+The 10M, 25M and 50M penalties (10, 4, 2 multiples of
+`nMnEnabledCount`) stayed unchanged. This is the specific historical
+fix, not evidence that the current queue is calibrated for all
+active/inactive network ratios.
+
+### Eligible network fraction is a key variable
+
+When most registered nodes were actively eligible, the legacy shortlist
+`CountMasternodes()/10` represented approximately 10% of qualified
+nodes. With the observed 311 registered and 40 qualified, it represents
+31/40 = 77.5%, which makes selection near-uniform among a broad
+eligible group and dilutes tier prioritization.
+
+The pure offline model also allows a hypothetical healthy population:
+
+    python3 contrib/devtools/tier_reward_scheduler_model.py --tier-counts 75,75,75,75 --total 311 --enabled 300
+
+Under the same synthetic assumptions, its legacy ratios are
+1 : 2.989 : 7.356 : 28.548, **not** the target 1 : 2.5 : 5 : 10.
+Thus restoring a large enabled population could materially alter payouts,
+but the simplified model does not prove that the old algorithm was
+correct with many nodes, or that these synthetic ratios occur on mainnet.
+
+**Decision gate:** Before replacing the consensus algorithm, reproduce
+actual historical payout distributions on both a healthy network period
+and the degraded 311/50/40 period, inspect wallet address reuse, and
+measure whether the 2025 fix and current behavior can be explained by
+shortlist-size effects. No production scheduler edit based on model
+ratios alone.
