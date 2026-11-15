@@ -7,6 +7,7 @@ on:
     paths:
       - contrib/devtools/tier_reward_*
       - contrib/devtools/test_tier_reward_snapshot.py
+      - contrib/devtools/test_tier_reward_coinbase_audit.py
       - src/tier_reward_priority_research.h
       - doc/tier-reward-scheduler-research-2026-11-15.md
       - .github/workflows/tier-reward-research.yml
@@ -14,6 +15,7 @@ on:
     paths:
       - contrib/devtools/tier_reward_*
       - contrib/devtools/test_tier_reward_snapshot.py
+      - contrib/devtools/test_tier_reward_coinbase_audit.py
       - src/tier_reward_priority_research.h
       - doc/tier-reward-scheduler-research-2026-11-15.md
       - .github/workflows/tier-reward-research.yml
@@ -31,6 +33,8 @@ jobs:
         run: python3 contrib/devtools/tier_reward_scheduler_model.py --self-test
       - name: Live RPC snapshot parser regression (mocked RPC, no network)
         run: python3 contrib/devtools/test_tier_reward_snapshot.py -v
+      - name: Historical coinbase parser regression (mocked RPC)
+        run: python3 contrib/devtools/test_tier_reward_coinbase_audit.py -v
       - name: C++ priority smoke build and test
         shell: bash
         run: |
