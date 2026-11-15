@@ -181,3 +181,47 @@ list at an arbitrary block without archival observations; a present
 snapshot is not evidence for the 2025 network makeup. To prove the
 historic cause, collect actual historic tier population/reward data
 from snapshots or verifiable chain sources.
+
+
+## Actual on-chain Coinbase audit (2026-11-15)
+
+Use the snapshot already collected at the user's Core node
+(/tmp/pepepow-tier-20261115T135418Z.json) to classify current MN
+outpoints by collateral tier, and read historical Coinbase transactions
+from real blocks. This is stronger than a synthetic queue simulation
+but does not reconstruct historical network eligibility.
+
+Run on the same Core host; start with 200 blocks to limit RPC load:
+
+    curl -fsSL https://raw.githubusercontent.com/edisontw/PePe-core/fix/tier-reward-scheduler-research/contrib/devtools/tier_reward_coinbase_audit.py -o /tmp/tier_reward_coinbase_audit.py
+    python3 /tmp/tier_reward_coinbase_audit.py --snapshot /tmp/pepepow-tier-20261115T135418Z.json --cli /home/ubuntu/PEPEPOW-cli --blocks 200
+
+Supported RPCs: getblockcount, masternodelist payee, getblockhash,
+getblock, and getrawtransaction TXID 1. The daemon normally needs
+txindex=1 and historical coinbase data available. On any missing
+historical transaction it stops with a clear error rather than
+reporting an incomplete sum as a success. It performs up to 3 RPC
+queries per block, prints progress in 25-block increments, and
+refuses windows above 2000 blocks to bound load on 1-vCPU nodes.
+
+The report contains matched Coinbase output count and PEPEW amount
+by present-day Tier, matched/unmatched blocks, ambiguous cross-tier
+payout addresses, and outputs associated only with nodes not
+currently ENABLED. Mixed-tier shared payees are excluded; same-tier
+shared-payee outputs cannot yield per-node earning rates.
+
+**Important**: These are Coinbase outputs to addresses which are
+*currently* known as masternode payees. An output match does not
+guarantee it was specifically an MN reward rather than a
+coincidentally matching miner/foundation output. Unmapped
+historical payees are invisible and today's status cannot establish
+historical eligibility. Review the payment amount frequencies and
+unmatched/ambiguous counts before drawing conclusions. Do not infer
+a consensus fix from 200 blocks.
+
+Offline tests:
+
+    python3 contrib/devtools/test_tier_reward_coinbase_audit.py -v
+
+The audit never changes Core configuration, payment selection,
+network votes, mempool, wallet or consensus state.
