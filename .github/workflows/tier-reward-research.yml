@@ -13,6 +13,7 @@ on:
   pull_request:
     paths:
       - contrib/devtools/tier_reward_*
+      - contrib/devtools/test_tier_reward_snapshot.py
       - src/tier_reward_priority_research.h
       - doc/tier-reward-scheduler-research-2026-11-15.md
       - .github/workflows/tier-reward-research.yml
