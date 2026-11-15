@@ -32,7 +32,7 @@ class AuditTests(unittest.TestCase):
                   ]},
             102: {"vin": [{"coinbase": "def"}],
                   "vout": [
-                      {"value": 15000, "scriptPubKey": {"addresses": ["miner"]}},
+                      {"value": 3087.5, "scriptPubKey": {"addresses": ["t3"]}},
                       {"value": 1662.5, "scriptPubKey": {"addresses": ["t4"]}},
                   ]},
         }
@@ -54,6 +54,10 @@ class AuditTests(unittest.TestCase):
         self.assertEqual(result["matched_output_count_by_tier"]["T4"], 1)
         self.assertEqual(result["matched_output_amount_by_tier_PEPEW"]["T1"], "1662.5")
         self.assertEqual(result["matched_output_count_by_tier"]["T2"], 0)
+        self.assertEqual(result["matched_output_count_by_tier"]["T3"], 0)
+        self.assertEqual(result["excluded_miner_vout0_address_matches"], 1)
+        self.assertEqual(result["excluded_miner_vout0_amounts"], {"3087.5": 1})
+        self.assertEqual(result["multiple_match_blocks"], 0)
         self.assertEqual(result["current_enabled_by_tier"]["T1"], 1)
         self.assertEqual(result["approx_outputs_per_current_enabled"]["T1"], 1)
         self.assertEqual(result["approx_per_current_enabled_ratio_to_T1"]["T4"], 1.0)
@@ -66,7 +70,9 @@ class AuditTests(unittest.TestCase):
         self.assertEqual(recipients["shared"]["tiers"], {"T1", "T4"})
         matched, ambiguities = mod.inspect_coinbase(
             {"vin": [{"coinbase": "yes"}],
-             "vout": [{"value": 1662.5,
+             "vout": [{"value": 3087.5,
+                       "scriptPubKey": {"addresses": ["miner"]}},
+                      {"value": 1662.5,
                        "scriptPubKey": {"addresses": ["shared"]}}]}, recipients)
         self.assertEqual(matched, [])
         self.assertEqual(ambiguities, ["mixed-tier-payee"])
