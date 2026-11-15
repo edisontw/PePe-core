@@ -54,6 +54,9 @@ class AuditTests(unittest.TestCase):
         self.assertEqual(result["matched_output_count_by_tier"]["T4"], 1)
         self.assertEqual(result["matched_output_amount_by_tier_PEPEW"]["T1"], "1662.5")
         self.assertEqual(result["matched_output_count_by_tier"]["T2"], 0)
+        self.assertEqual(result["current_enabled_by_tier"]["T1"], 1)
+        self.assertEqual(result["approx_outputs_per_current_enabled"]["T1"], 1)
+        self.assertEqual(result["approx_per_current_enabled_ratio_to_T1"]["T4"], 1.0)
 
     def test_mixed_tier_shared_payee_excluded(self):
         snap, payees = sample()
