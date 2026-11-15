@@ -116,8 +116,9 @@ def run_once(state_dir, cli="/home/ubuntu/PEPEPOW-cli",
                 raise MonitorError("Prior snapshot path missing or outside state directory")
             previous = read_json(old_snapshot_path)
             previous_counts = counts_enabled(previous)
-            interval_relative = "intervals/interval-{}-{}-{}.json".format(
-                old_height + 1, new_height, stamp)
+            # Deterministic range name avoids duplicate accounting on crash/retry.
+            interval_relative = "intervals/interval-{}-{}.json".format(
+                old_height + 1, new_height)
             details = {
                 "schema_version": SCHEMA,
                 "start_height": old_height + 1,
