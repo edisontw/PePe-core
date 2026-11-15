@@ -97,6 +97,58 @@ class AuditTests(unittest.TestCase):
         with self.assertRaisesRegex(mod.AuditError, "Check txindex=1"):
             mod.audit(snap, payees, 1, fake_rpc)
 
+    def test_fixed_height_bonus_schedule_not_governance(self):
+        self.assertEqual(mod.scheduled_bonus_multiplier(5236587), 1)
+        self.assertEqual(mod.scheduled_bonus_multiplier(5236588), 2)
+        self.assertEqual(mod.scheduled_bonus_multiplier(5236688), 2)
+        self.assertEqual(mod.scheduled_bonus_multiplier(5236999), 5)
+        self.assertEqual(mod.scheduled_bonus_multiplier(5237000), 1)
+        self.assertEqual(mod.expected_mn_payment_post_bonus(5236588),
+                         mod.Decimal("3325.0"))
+        self.assertEqual(mod.expected_mn_payment_post_bonus(5236999),
+                         mod.Decimal("8312.5"))
+        self.assertFalse(mod.potential_governance_superblock_height(5236588))
+        self.assertFalse(mod.potential_governance_superblock_height(5236688))
+        self.assertTrue(mod.potential_governance_superblock_height(16616 * 315))
+        self.assertIsNone(mod.expected_mn_payment_post_bonus(5170000))
+
+    def test_bonus_payment_is_valid_and_miner_collision_excluded(self):
+        snapshot, payees = sample()
+        for height, factor in ((5236588, 2), (5236688, 2), (5236999, 5)):
+            with self.subTest(height=height):
+                snapshot["height_end"] = height
+                def fake_rpc(method, *args):
+                    if method == "getblockcount":
+                        return height
+                    if method == "getblockhash":
+                        return "hash"
+                    if method == "getblock":
+                        return {"tx": ["coinbase"]}
+                    if method == "getrawtransaction":
+                        return {
+                            "vin": [{"coinbase": "ab"}],
+                            "vout": [
+                                {"value": 3087.5 * factor,
+                                 "scriptPubKey": {"addresses": ["t1"]}},
+                                {"value": 1662.5 * factor,
+                                 "scriptPubKey": {"addresses": ["t4"]}},
+                                {"value": 250 * factor,
+                                 "scriptPubKey": {"addresses": ["foundation"]}},
+                            ],
+                        }
+                    raise AssertionError(method)
+                report = mod.audit(snapshot, payees, 1, fake_rpc)
+                self.assertEqual(report["matched_output_count_by_tier"]["T1"], 0)
+                self.assertEqual(report["matched_output_count_by_tier"]["T4"], 1)
+                self.assertEqual(report["excluded_miner_vout0_address_matches"], 1)
+                self.assertEqual(report["scheduled_subsidy_multiplier_matched_payouts"],
+                                 {str(factor): 1})
+                self.assertEqual(report["scheduled_reward_amount_mismatch_examples"], [])
+                self.assertEqual(report["normal_reward_unit_equivalent_by_tier"]["T4"],
+                                 str(mod.Decimal(factor)))
+                self.assertEqual(report["atypical_non_miner_output_examples"][0]
+                                 ["scheduled_bonus"], True)
+
     def test_guard_for_expensive_window(self):
         snap, payees = sample()
         with self.assertRaisesRegex(mod.AuditError, "1..2000"):
