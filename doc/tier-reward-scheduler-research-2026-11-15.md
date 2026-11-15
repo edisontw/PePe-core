@@ -420,7 +420,10 @@ blocks. When the new span exceeds 300 blocks, the tool marks the entire
 span as \`gap_unscanned\` and advances its baseline explicitly rather
 than misleadingly reporting full block coverage. If an RPC fails, the
 previous \`state.json\` pointer remains at the previous height so a
-retry can attempt the same interval. An OS flock guards concurrent runs.
+retry can attempt the same interval. It also checks that the previous
+block hash is still on the same chain before scanning; if a reorg is
+detected, it stops and preserves the last accepted state. An OS flock
+guards concurrent runs.
 
 ### Optional cron after two manual successful runs
 
