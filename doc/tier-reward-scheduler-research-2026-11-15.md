@@ -375,3 +375,93 @@ Next safe step: take periodic *read-only* tier/status snapshots and
 collect per-window/per-node payout counts from real Coinbase outputs,
 annotating changes in qualifying tier population. Keep the existing
 v2.9.0.6 production payment algorithm unchanged while building evidence.
+
+
+## Incremental longitudinal tier observations (non-consensus)
+
+The v2.9.0.6 RPC \`masternode count qualify\` invokes
+\`GetNextMasternodeInQueueForPayment(true, nCount, ...)\`. Its returned
+\`nCount\` is **the number remaining after payment eligibility filters**:
+\`IsValidForPayment\`, protocol, future scheduled winners,
+new-node sigTime, last ping age, UTXO confirmation count, and fallback
+when too few qualify. This RPC **does not return Qualify by tier**.
+The 2026-11-15 snapshot had a locally observable 51 / RPC Qualify 43,
+but the 8-node difference cannot be proven to equal 8 scheduled winners
+from these RPCs alone.
+
+Use the incremental monitor to collect the next snapshot and only
+the blocks since the previous one, instead of repeatedly rechecking
+1,000 historical blocks. It never replaces the legacy Masternode
+scheduler or casts votes.
+
+### One-time setup on edison4 (Ubuntu)
+
+Download the **three small Python scripts only**, without cloning the
+large Core repository. Pin them to the same reviewed feature-branch
+commit once tests are verified, rather than mixing versions.
+
+    mkdir -p "$HOME/pepepow-tier-monitor"
+    cd "$HOME/pepepow-tier-monitor"
+    BASE=https://raw.githubusercontent.com/edisontw/PePe-core/fix/tier-reward-scheduler-research/contrib/devtools
+    for name in tier_reward_snapshot.py tier_reward_coinbase_audit.py tier_reward_monitor.py; do
+      curl -fsSL "$BASE/$name" -o "$name" || exit 1
+    done
+    python3 -m py_compile tier_reward_snapshot.py tier_reward_coinbase_audit.py tier_reward_monitor.py
+
+A manual baseline run creates a current snapshot and initial state
+**without re-scanning history**:
+
+    python3 "$HOME/pepepow-tier-monitor/tier_reward_monitor.py" \
+      --state-dir "$HOME/pepepow-tier-observations" \
+      --cli /home/ubuntu/PEPEPOW-cli --max-blocks 300
+
+Repeat after several hours. The second run audits only newly generated
+blocks. When the new span exceeds 300 blocks, the tool marks the entire
+span as \`gap_unscanned\` and advances its baseline explicitly rather
+than misleadingly reporting full block coverage. If an RPC fails, the
+previous \`state.json\` pointer remains at the previous height so a
+retry can attempt the same interval. An OS flock guards concurrent runs.
+
+### Optional cron after two manual successful runs
+
+Use a **six-hour cadence**, not a high-frequency loop on the Oracle
+1-vCPU / 6-GiB host. This is a suggested operator command and **has
+not been installed or activated remotely**:
+
+    crontab -e
+
+Then add one line (replace paths if installed elsewhere):
+
+    15 */6 * * * /usr/bin/python3 /home/ubuntu/pepepow-tier-monitor/tier_reward_monitor.py --state-dir /home/ubuntu/pepepow-tier-observations --cli /home/ubuntu/PEPEPOW-cli --max-blocks 300 >> /home/ubuntu/pepepow-tier-observations/monitor.log 2>&1
+
+### Evidence and reports
+
+Snapshots, per-interval Coinbase reports, and a pointer state file
+are retained locally in \`~/pepepow-tier-observations\`:
+
+    python3 "$HOME/pepepow-tier-monitor/tier_reward_monitor.py" \
+      --state-dir "$HOME/pepepow-tier-observations" --report
+
+Reported metrics are:
+- Actual outputs per Tier in scanned intervals (miner \`vout[0]\` excluded).
+- Total scanned blocks, explicitly unscanned gap blocks, and changing
+  ENABLED tier populations at interval endpoints.
+- An **approximate endpoint-averaged ENABLED exposure**, not exact
+  historical eligible-node exposure. Zero-exposure tiers are reported
+  as null. The ratio to T1 is also null when T1 is absent.
+- Correct fixed-height 1x/2x/5x payouts, as in the Coinbase audit.
+
+**Limitations:** Snapshot intervals do not recreate historical
+\`Qualify\` per tier or actual voter/peer consensus state. The script
+uses the payee map from the later snapshot; a Masternode that leaves
+the map may be unmatched in that window. Changes between snapshots
+are approximated by endpoint average. Coinbase sums and status
+exposure alone MUST NOT justify an immediate consensus change.
+
+Safety: no wallet password, private keys, rpcpassword, IP or payee
+address is written to the JSON files. No Core configuration changes,
+no daemon restart, no change to \`MattF42/master\`, and no release.
+
+Offline tests:
+
+    python3 contrib/devtools/test_tier_reward_monitor.py -v
