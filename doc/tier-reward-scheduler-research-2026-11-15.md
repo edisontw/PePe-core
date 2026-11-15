@@ -225,3 +225,39 @@ Offline tests:
 
 The audit never changes Core configuration, payment selection,
 network votes, mempool, wallet or consensus state.
+
+
+## 2026-11-15 live 200-block evidence and miner-output audit correction
+
+Observed snapshot height **5,236,763**; scanned blocks **5,236,564–5,236,763**.
+The initial address-only Coinbase scanner returned 202 matched outputs across
+200 blocks: T1=15, T2=3, T3=25, T4=159. There were two blocks with more
+than one matching output, and the amount frequencies included exactly two
+3,087.5-PEPEW outputs plus 1,662.5-PEPEW ordinary amounts.
+
+Source inspection shows \`CMasternodePayments::FillBlockPayee()\` writes
+the *miner* reward to \`txNew.vout[0]\` and adds the Masternode payment in
+a subsequent Coinbase output. Therefore a miner paying to a currently known
+MN address can contaminate address-only reward counts. The exact
+3,087.5-PEPEW anomalies are **suspected miner outputs**, but the original
+report contains no output indices to confirm that inference.
+
+The audit is now patched to explicitly exclude \`vout[0]\` and record
+any excluded miner-output address match with height, txid, and amount.
+It also reports non-standard amounts on subsequent matched outputs,
+and keeps ambiguous mixed-tier payees excluded.
+
+**Rerun the identical window** before using the ratios:
+
+    curl -fsSL https://raw.githubusercontent.com/edisontw/PePe-core/fix/tier-reward-scheduler-research/contrib/devtools/tier_reward_coinbase_audit.py -o /tmp/tier_reward_coinbase_audit.py
+    python3 /tmp/tier_reward_coinbase_audit.py --snapshot /tmp/pepepow-tier-20261115T135418Z.json --cli /home/ubuntu/PEPEPOW-cli --blocks 200
+
+Check \`excluded_miner_vout0_address_matches\`, the example txids,
+\`multiple_match_blocks\`, and the output count by tier. Ideally each
+ordinary block has one non-miner MN reward output; verify exceptions
+against real transactions before claiming this always holds.
+
+Even a corrected 200-block sample cannot establish sustainable ratio
+because the relative population of currently ENABLED/qualified nodes
+can differ over time. A follow-up 1000–2000 block window can increase
+sample size, but does not recover historical eligibility.
