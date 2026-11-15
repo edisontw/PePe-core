@@ -148,6 +148,14 @@ def audit(snapshot, payees, blocks, rpc_func, progress=None):
                 classified_disabled += 1
         if progress and (i % 25 == 0 or i == blocks):
             progress(i, blocks)
+    enabled_tier_counts = collections.Counter(
+        n["tier"] for n in snapshot["nodes"]
+        if n["status"] == "ENABLED" and n["tier"] in TIERS)
+    normalized = {t: (round(total[t] / enabled_tier_counts[t], 4)
+                      if enabled_tier_counts[t] else None) for t in TIERS}
+    baseline = normalized["T1"]
+    ratios = {t: (round(normalized[t] / baseline, 3)
+                  if baseline and normalized[t] is not None else None) for t in TIERS}
     return {
         "snapshot_height": end,
         "scanned_block_range": [start, end],
@@ -156,6 +164,9 @@ def audit(snapshot, payees, blocks, rpc_func, progress=None):
         "no_match_blocks": no_match_blocks,
         "multiple_match_blocks": multiple_match_blocks,
         "matched_output_count_by_tier": {t: total[t] for t in TIERS},
+        "current_enabled_by_tier": {t: enabled_tier_counts[t] for t in TIERS},
+        "approx_outputs_per_current_enabled": normalized,
+        "approx_per_current_enabled_ratio_to_T1": ratios,
         "matched_output_amount_by_tier_PEPEW": {t: str(sums[t]) for t in TIERS},
         "amount_frequencies_top": sample_amounts.most_common(8),
         "shared_address_outputs_single_tier": single_tier_shared_payee,
@@ -165,6 +176,7 @@ def audit(snapshot, payees, blocks, rpc_func, progress=None):
         "warnings": [
             "Coinbase outputs to present-day listed payee addresses; does not prove "
             "historical tier, qualification or MN-reward type",
+            "The per-current-ENABLED normalization is indicative only: status/tier/qualification can change over the scanned historical interval",
             "Shared payee addresses cannot attribute payout frequency per node",
             "Unknown historical payees and miner/foundation address coincidences "
             "may bias totals; do not claim consensus causality",
