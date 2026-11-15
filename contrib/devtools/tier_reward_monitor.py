@@ -89,6 +89,9 @@ def run_once(state_dir, cli="/home/ubuntu/PEPEPOW-cli",
         if new_height != int(snap["height_start"]):
             # An inconsistent snapshot cannot define an exact interval end.
             raise MonitorError("Block tip changed during snapshot; retry later")
+        if old_state is not None and new_height < int(old_state["last_height"]):
+            raise MonitorError("Tip fell below previous snapshot (reorg or lag): "
+                               "investigate; prior state preserved")
         if chain_hash_provider is None and snapshot_provider is None:
             chain_hash_provider = lambda h: snapshot_rpc.rpc_cli(
                 cli, "getblockhash", str(h))
@@ -99,9 +102,6 @@ def run_once(state_dir, cli="/home/ubuntu/PEPEPOW-cli",
                                    "review before continuing; state preserved")
         new_block_hash = (str(chain_hash_provider(new_height))
                           if chain_hash_provider else None)
-        if old_state is not None and new_height < int(old_state["last_height"]):
-            raise MonitorError("Tip fell below previous snapshot (reorg or lag): "
-                               "investigate; prior state preserved")
 
         stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         snapshot_relative = "snapshots/snapshot-{}-{}.json".format(new_height, stamp)
