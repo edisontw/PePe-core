@@ -6,6 +6,7 @@ on:
       - fix/tier-reward-scheduler-research
     paths:
       - contrib/devtools/tier_reward_*
+      - contrib/devtools/test_tier_reward_snapshot.py
       - src/tier_reward_priority_research.h
       - doc/tier-reward-scheduler-research-2026-11-15.md
       - .github/workflows/tier-reward-research.yml
@@ -27,6 +28,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Model regression
         run: python3 contrib/devtools/tier_reward_scheduler_model.py --self-test
+      - name: Live RPC snapshot parser regression (mocked RPC, no network)
+        run: python3 contrib/devtools/test_tier_reward_snapshot.py -v
       - name: C++ priority smoke build and test
         shell: bash
         run: |
