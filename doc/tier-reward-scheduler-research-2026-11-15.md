@@ -413,10 +413,10 @@ A manual baseline run creates a current snapshot and initial state
 
     python3 "$HOME/pepepow-tier-monitor/tier_reward_monitor.py" \
       --state-dir "$HOME/pepepow-tier-observations" \
-      --cli /home/ubuntu/PEPEPOW-cli --max-blocks 300
+      --cli /home/ubuntu/PEPEPOW-cli --max-blocks 1500
 
-Repeat after several hours. The second run audits only newly generated
-blocks. When the new span exceeds 300 blocks, the tool marks the entire
+Repeat after approximately one hour. The second run audits only newly generated
+blocks. When the new span exceeds 1,500 blocks, the tool marks the entire
 span as `gap_unscanned` and advances its baseline explicitly rather
 than misleadingly reporting full block coverage. If an RPC fails, the
 previous `state.json` pointer remains at the previous height so a
@@ -427,15 +427,20 @@ guards concurrent runs.
 
 ### Optional cron after two manual successful runs
 
-Use a **six-hour cadence**, not a high-frequency loop on the Oracle
-1-vCPU / 6-GiB host. This is a suggested operator command and **has
+Use an **hourly cadence**, not six-hour intervals. PEPEPOW mainnet's
+actual `nPowTargetSpacing` is **20 seconds** (`src/chainparams.cpp`),
+so 6 hours may produce ~1,080 blocks. A six-hour cadence combined with
+the old 300-block cap would systematically create `gap_unscanned`.
+At one-hour intervals ~180 blocks are expected; `--max-blocks 1500`
+provides catch-up headroom on the Oracle 1-vCPU / 6-GiB host.
+Observe actual RPC scan duration and reduce workload if needed. This is a suggested operator command and **has
 not been installed or activated remotely**:
 
     crontab -e
 
 Then add one line (replace paths if installed elsewhere):
 
-    15 */6 * * * /usr/bin/python3 /home/ubuntu/pepepow-tier-monitor/tier_reward_monitor.py --state-dir /home/ubuntu/pepepow-tier-observations --cli /home/ubuntu/PEPEPOW-cli --max-blocks 300 >> /home/ubuntu/pepepow-tier-observations/monitor.log 2>&1
+    15 * * * * /usr/bin/python3 /home/ubuntu/pepepow-tier-monitor/tier_reward_monitor.py --state-dir /home/ubuntu/pepepow-tier-observations --cli /home/ubuntu/PEPEPOW-cli --max-blocks 1500 >> /home/ubuntu/pepepow-tier-observations/monitor.log 2>&1
 
 ### Evidence and reports
 
