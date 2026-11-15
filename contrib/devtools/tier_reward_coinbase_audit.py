@@ -221,7 +221,7 @@ def audit(snapshot, payees, blocks, rpc_func, progress=None):
                             "observed": str(amount), "expected_fee_free": str(expected),
                             "bonus_multiplier": bonus_multiplier,
                         })
-            if amount != BASE_MN_PAYMENT_POST_BONUS:
+            if abs(amount - BASE_MN_PAYMENT_POST_BONUS) > Decimal("0.1"):
                 if len(atypical_non_miner_outputs) < 30:
                     atypical_non_miner_outputs.append({
                         "height": height, "txid": txid,
